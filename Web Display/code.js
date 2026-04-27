@@ -1,4 +1,4 @@
-function newFunction() {
+function calculate() {
     let S = parseFloat(document.getElementById('S').value) / 100;
     let R = parseFloat(document.getElementById('R').value) / 100;
     let S1 = parseFloat(document.getElementById('S1').value) / 100;
