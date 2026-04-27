@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Probability Engine</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #8b0000; border-bottom: 2px solid #8b0000; padding-bottom: 10px; }
+        .result-box { margin-top: 20px; padding: 20px; background: #eef2ff; border-radius: 8px; border-left: 5px solid #8b0000; }
+        p { font-size: 1.1em; }
+        code { background: #eee; padding: 2px 5px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Tennis Match Analytics</h1>
+    <p>Using <strong>Markov Chain</strong> stochastic modeling to predict set outcomes based on point-level data.</p>
+    
+    <div class="result-box">
+        <h3>Live Model Output:</h3>
+        <p>Calculated P1 (Point Win Prob): <strong id="output-p1">Loading...</strong></p>
+    </div>
+
+    <p style="font-size: 0.8em; color: #666; margin-top: 30px;">
+        <em>Note: This model uses the logic derived in <code>code.js</code>. Open the browser console (Ctrl+Shift+J) for detailed logs.</em>
+    </p>
+</div>
+
+<script src="code.js"></script>
+
+<script>
+    // This tiny script updates the text on your screen with your math result
+    window.onload = function() {
+        if (typeof P1 !== 'undefined') {
+            document.getElementById('output-p1').innerText = (P1 * 100).toFixed(2) + "%";
+        } else {
+            document.getElementById('output-p1').innerText = "Error: P1 not found in code.js";
+        }
+    };
+</script>
+
+</body>
+</html>
