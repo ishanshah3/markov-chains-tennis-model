@@ -94,8 +94,29 @@
             background: rgba(0,0,0,0.2); 
             padding: 20px; 
             border-radius: 4px; 
-            text-align: center;
             border: 1px dashed var(--ball-yellow);
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .output-box {
+            flex: 1;
+            min-width: 180px;
+            background: rgba(255,255,255,0.08);
+            padding: 16px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+            text-align: center;
+        }
+
+        .output-label {
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            opacity: 0.9;
         }
 
         .prob-value { 
@@ -144,8 +165,14 @@
     <button onclick="calculate()">Run Model</button>
 
     <div class="output-screen">
-        Player 1 Service Point Win Probability
-        <span class="prob-value" id="prob_display">--%</span>
+        <div class="output-box">
+            <div class="output-label">Player 1 Service Point Win</div>
+            <span class="prob-value" id="prob_display1">--%</span>
+        </div>
+        <div class="output-box">
+            <div class="output-label">Player 2 Service Point Win</div>
+            <span class="prob-value" id="prob_display2">--%</span>
+        </div>
     </div>
 </div>
 
