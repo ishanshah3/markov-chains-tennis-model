@@ -6,5 +6,5 @@ let R1 = 0.4;
 let R2 = 0.35;
 let W1 = Math.sqrt(S * (1 - R));
 let W2 = Math.sqrt(S * (1 - R));
-let P1 = ((S1 (1 - R2)) / W1) / (((S1 (1 - R2)) / W1) + ((1 - S1) R2) / W2);
+let P1 = ((S1 * (1 - R2)) / W1) / (((S1 * (1 - R2)) / W1) + ((1 - S1) * R2) / W2);
 console.log(P1);
