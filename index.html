@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tennis Probability Engine</title>
     <style>
-        /* US Open Color Palette */
+        
         :root {
             --court-blue: #2a5c9a;
             --court-green: #3c7d4d;
@@ -28,7 +28,7 @@
             max-width: 500px; 
             background-color: var(--court-blue); 
             padding: 30px; 
-            border: 8px solid var(--white); /* White court lines */
+            border: 8px solid var(--white);
             border-radius: 4px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             color: var(--white);
@@ -109,42 +109,42 @@
 <body>
 
 <div class="court-container">
-    <h1>Match Quant</h1>
+    <h1>Points Probabilities</h1>
 
-    <div class="section-label">Tour Averages (Baselines)</div>
+    <div class="section-label">Tour Averages</div>
     <div class="input-row">
         <label>Avg Serve Win %</label>
-        <input type="number" id="tourS_in" value="64.0" step="0.1">
+        <input type="number" id="S" value="0.0" step="0.1">
     </div>
     <div class="input-row">
         <label>Avg Return Win %</label>
-        <input type="number" id="tourR_in" value="36.0" step="0.1">
+        <input type="number" id="R" value="0.0" step="0.1">
     </div>
 
-    <div class="section-label">Player 1 (Me)</div>
+    <div class="section-label">Player 1</div>
     <div class="input-row">
         <label>Serve Win %</label>
-        <input type="number" id="p1S_in" value="60.0" step="0.1">
+        <input type="number" id="P1" value="0.0" step="0.1">
     </div>
     <div class="input-row">
         <label>Return Win %</label>
-        <input type="number" id="p1R_in" value="35.0" step="0.1">
+        <input type="number" id="R1" value="0.0" step="0.1">
     </div>
 
-    <div class="section-label">Player 2 (Opponent)</div>
+    <div class="section-label">Player 2</div>
     <div class="input-row">
         <label>Serve Win %</label>
-        <input type="number" id="p2S_in" value="65.0" step="0.1">
+        <input type="number" id="P2" value="0.0" step="0.1">
     </div>
     <div class="input-row">
         <label>Return Win %</label>
-        <input type="number" id="p2R_in" value="35.0" step="0.1">
+        <input type="number" id="R2" value="0.0" step="0.1">
     </div>
 
     <button onclick="calculate()">Run Model</button>
 
     <div class="output-screen">
-        P1 WIN PROBABILITY
+        Player 1 WIN PROBABILITY
         <span class="prob-value" id="prob_display">--%</span>
     </div>
 </div>
