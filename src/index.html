@@ -132,6 +132,24 @@
 <div class="court-container">
     <h1>Point Probability</h1>
 
+    <div class="section-label">Match Setup</div>
+    <div class="input-row">
+        <label>Player 1 Name</label>
+        <input type="text" id="player1" value="Carlos Alcaraz">
+    </div>
+    <div class="input-row">
+        <label>Player 2 Name</label>
+        <input type="text" id="player2" value="Jannik Sinner">
+    </div>
+    <div class="input-row">
+        <label>Surface</label>
+        <select id="surface">
+            <option value="Clay">Clay</option>
+            <option value="Hard">Hard</option>
+            <option value="Grass">Grass</option>
+        </select>
+    </div>
+
     <div class="section-label">Tour Averages</div>
     <div class="input-row">
         <label>Avg Serve Win %</label>
@@ -162,24 +180,74 @@
         <input type="number" id="R2" value="0.0" step="0.1">
     </div>
 
-    <button onclick="calculate()">Run Model</button>
+    <button onclick="compute()">Run Model</button>
 
     <div class="output-screen">
         <div class="output-box">
-            <div class="output-label">Player 1 Service Point Win</div>
+            <div class="output-label">Player 1 — Point (serving)</div>
             <span class="prob-value" id="prob_display1">--%</span>
+            <div class="output-label">Game (on serve)</div>
+            <span class="prob-value" id="game_display1">--%</span>
+            <div class="output-label">Set win</div>
+            <span class="prob-value" id="set_display1">--%</span>
         </div>
         <div class="output-box">
-            <div class="output-label">Player 2 Service Point Win</div>
+            <div class="output-label">Player 2 — Point (serving)</div>
             <span class="prob-value" id="prob_display2">--%</span>
+            <div class="output-label">Game (on serve)</div>
+            <span class="prob-value" id="game_display2">--%</span>
+            <div class="output-label">Set win</div>
+            <span class="prob-value" id="set_display2">--%</span>
         </div>
     </div>
 </div>
 
-<script src="code.js"></script>
+<script>
+function fmt(x){ return (x*100).toFixed(2) + '%'; }
+
+async function compute(){
+    const p1 = document.getElementById('player1').value.trim();
+    const p2 = document.getElementById('player2').value.trim();
+    const surface = document.getElementById('surface').value;
+
+    if(!p1 || !p2 || p1.toLowerCase() === p2.toLowerCase()){
+        alert('Please enter two different player names.');
+        return;
+    }
+
+    const btn = event && event.target ? event.target : null;
+    if(btn) btn.disabled = true;
+
+    try{
+        const res = await fetch('/probabilities', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({player1: p1, player2: p2, surface})
+        });
+
+        if(!res.ok){
+            const txt = await res.text();
+            throw new Error(txt || 'Server error');
+        }
+
+        const data = await res.json();
+
+        if(data.error){ throw new Error(data.error); }
+
+        document.getElementById('prob_display1').textContent = fmt(data.point_win_server_p1);
+        document.getElementById('prob_display2').textContent = fmt(data.point_win_server_p2);
+        document.getElementById('game_display1').textContent = fmt(data.game_win_on_serve_p1);
+        document.getElementById('game_display2').textContent = fmt(data.game_win_on_serve_p2);
+        document.getElementById('set_display1').textContent = fmt(data.set_win_p1);
+        document.getElementById('set_display2').textContent = fmt(data.set_win_p2);
+
+    }catch(err){
+        alert('Error: ' + err.message);
+    }finally{
+        if(btn) btn.disabled = false;
+    }
+}
+</script>
 
 </body>
 </html>
-
-
-:)
