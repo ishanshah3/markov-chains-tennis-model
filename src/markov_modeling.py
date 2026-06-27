@@ -251,14 +251,19 @@ def set_transition_matrix(H_1, H_2, P_1, P_2):
     R[37, 1] = H_2
 
     # State 38: 6-6
-    Q[38, 0] = 0
-    Q[38, 1] = 0
+    R[38, 0] = 0.5
+    R[38, 1] = 0.5
 
     I = np.eye(39)
     N = np.linalg.inv(I - Q)
     A = np.dot(N, R)
 
-    return A
+    if A[0, 0] > A[0, 1]:
+        return("Player 1 wins the match with probability:", A[0, 0])
+    elif A[0, 1] > A[0, 0]:
+        return("Player 2 wins the match with probability:", A[0, 1])
+    else:
+        return("The match is tied.")
 
-WINNER1 = set_transition_matrix(H_2, H_1, P_2, P_1)
-print(WINNER1)
+Winner = set_transition_matrix(H_1, H_2, P_1, P_2)
+print(Winner)
