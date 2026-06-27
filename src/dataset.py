@@ -23,7 +23,7 @@ def player_stats(df, player_name, surface="Clay"):
 
     return svpts_won / total_svpts, rtpts_won / total_rtpts
 
-serve1, return1 = player_stats(df, "Jannik Sinner", "Clay")
-serve2, return2 = player_stats(df, "Carlos Alcaraz", "Clay")
+serve1, return1 = player_stats(df, "Carlos Alcaraz", "Clay")
+serve2, return2 = player_stats(df, "Jannik Sinner", "Clay")
 print(f"Player 1 - Serve: {serve1}, Return: {return1}")
 print(f"Player 2 - Serve: {serve2}, Return: {return2}")
