@@ -15,23 +15,25 @@
 
         body { 
             font-family: 'Segoe UI', Arial, sans-serif; 
-            background-color: var(--court-green); 
+            background: linear-gradient(180deg, #2e7440 0%, #244f36 60%);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            font-size: 18px;
+            color: var(--white);
         }
 
         .court-container { 
             width: 100%;
-            max-width: 500px; 
-            background-color: var(--court-blue); 
-            padding: 30px; 
-            border: 8px solid var(--white);
-            border-radius: 4px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 720px; 
+            background: linear-gradient(180deg, rgba(42,92,154,0.95), rgba(36,64,120,0.95));
+            padding: 28px; 
+            border-radius: 12px;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
             color: var(--white);
+            border: 1px solid rgba(255,255,255,0.06);
         }
 
         h1 { 
@@ -39,8 +41,10 @@
             text-transform: uppercase;
             letter-spacing: 2px;
             margin-top: 0;
-            border-bottom: 2px solid var(--white);
-            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255,255,255,0.08);
+            padding-bottom: 12px;
+            font-size: 28px;
+            margin-bottom: 12px;
         }
 
         .section-label {
@@ -57,73 +61,79 @@
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
+            gap: 12px;
             margin-bottom: 12px; 
         }
 
-        label { font-size: 0.95em; }
+        label { font-size: 1.05em; font-weight: 600; }
 
-        input[type="number"] { 
-            width: 70px; 
-            padding: 8px; 
-            border-radius: 4px; 
-            border: 2px solid var(--white);
-            background: var(--white);
-            font-weight: bold;
-            text-align: center;
+        input[type="number"], input[type="text"], select { 
+            padding: 10px 12px; 
+            border-radius: 8px; 
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            color: var(--white);
+            font-weight: 600;
+            text-align: left;
+            min-width: 160px;
         }
 
         button { 
             width: 100%; 
-            padding: 15px; 
+            padding: 14px 18px; 
             background-color: var(--ball-yellow); 
-            color: #333; 
+            color: #1a1a1a; 
             border: none; 
-            border-radius: 4px; 
-            font-size: 1.1em; 
-            font-weight: bold; 
+            border-radius: 10px; 
+            font-size: 1.05em; 
+            font-weight: 800; 
             cursor: pointer; 
-            margin-top: 20px;
+            margin-top: 18px;
             text-transform: uppercase;
-            transition: transform 0.1s;
+            transition: transform 0.08s, box-shadow 0.18s;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25);
         }
 
-        button:active { transform: scale(0.98); }
+        button:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.32); transform: translateY(-2px); }
+        button:active { transform: translateY(0); }
 
         .output-screen { 
-            margin-top: 25px; 
-            background: rgba(0,0,0,0.2); 
-            padding: 20px; 
-            border-radius: 4px; 
-            border: 1px dashed var(--ball-yellow);
+            margin-top: 20px; 
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); 
+            padding: 18px; 
+            border-radius: 10px; 
+            border: 1px solid rgba(255,255,255,0.04);
             display: flex;
-            gap: 16px;
+            gap: 18px;
             flex-wrap: wrap;
             justify-content: center;
         }
 
         .output-box {
             flex: 1;
-            min-width: 180px;
-            background: rgba(255,255,255,0.08);
-            padding: 16px;
-            border-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.2);
+            min-width: 220px;
+            background: rgba(255,255,255,0.03);
+            padding: 18px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.03);
             text-align: center;
+            backdrop-filter: blur(4px);
         }
 
         .output-label {
-            font-size: 0.85em;
+            font-size: 0.9em;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 10px;
-            opacity: 0.9;
+            margin-bottom: 8px;
+            opacity: 0.95;
         }
 
         .prob-value { 
-            font-size: 2.5em; 
+            font-size: 2.8rem; 
             color: var(--ball-yellow); 
             display: block;
-            margin-top: 5px;
+            margin-top: 6px;
+            font-weight: 800;
         }
     </style>
 </head>
