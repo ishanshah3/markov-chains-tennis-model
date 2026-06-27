@@ -162,7 +162,7 @@
 
     <!-- Removed numeric inputs: probabilities and percentages now computed from server-side code -->
 
-    <button onclick="compute()">Run Model</button>
+    <button onclick="compute(event)">Run Model</button>
 
     <div class="output-screen">
         <div class="output-box">
@@ -187,7 +187,7 @@
 <script>
 function fmt(x){ return (x*100).toFixed(2) + '%'; }
 
-async function compute(){
+async function compute(event){
     const p1 = document.getElementById('player1').value.trim();
     const p2 = document.getElementById('player2').value.trim();
     const surface = document.getElementById('surface').value;

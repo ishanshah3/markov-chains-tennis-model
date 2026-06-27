@@ -2,15 +2,20 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 
 # Use the project's modeling and dataset code
-from markov_modeling import compute_probabilities
-from dataset import df, player_stats
+try:
+    from src.markov_modeling import compute_probabilities
+    from src.dataset import df, player_stats
+except ImportError:
+    from markov_modeling import compute_probabilities
+    from dataset import df, player_stats
 
-app = Flask(__name__, static_folder='.')
+APP_DIR = os.path.abspath(os.path.dirname(__file__))
+app = Flask(__name__, static_folder=APP_DIR)
 
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(APP_DIR, 'index.html')
 
 
 @app.route('/probabilities', methods=['POST'])
