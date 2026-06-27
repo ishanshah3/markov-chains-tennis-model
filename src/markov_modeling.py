@@ -93,7 +93,7 @@ H_2 = game_transition_matrix(P_2)
 
 print(H_1, H_2)
 
-def set_transition_matrix(H_1, H_2, P_1, P_2):
+def set_transition_matrix(H_1, H_2, P_1, P_2, return_raw=False):
     B_1 = 1 - H_1
     B_2 = 1 - H_2
 
@@ -260,6 +260,9 @@ def set_transition_matrix(H_1, H_2, P_1, P_2):
     N = np.linalg.inv(I - Q)
     A = np.dot(N, R)
 
+    if return_raw:
+        return float(A[0, 0]), float(A[0, 1])
+
     if A[0, 0] > A[0, 1]:
         return("Player 1 wins the match with probability " + str(A[0, 0]) + ".")
     elif A[0, 1] > A[0, 0]:
@@ -269,3 +272,24 @@ def set_transition_matrix(H_1, H_2, P_1, P_2):
 
 Winner = set_transition_matrix(H_1, H_2, P_1, P_2)
 print(Winner)
+
+
+# Additional helper that returns numeric probabilities (preserves original code above)
+def compute_probabilities(S_1, R_1, S_2, R_2, S_avg=0.64, R_avg=0.36):
+    W_1 = np.sqrt(S_avg * (1 - R_avg))
+    W_2 = np.sqrt((1 - S_avg) * R_avg)
+    P_1 = (S_1 * (1 - R_2) / W_1) / ((S_1 * (1 - R_2) / W_1) + (((1 - S_1) * R_2) / W_2))
+    P_2 = (S_2 * (1 - R_1) / W_1) / ((S_2 * (1 - R_1) / W_1) + (((1 - S_2) * R_1) / W_2))
+
+    H_1 = game_transition_matrix(P_1)
+    H_2 = game_transition_matrix(P_2)
+    set_p1, set_p2 = set_transition_matrix(H_1, H_2, P_1, P_2, return_raw=True)
+
+    return {
+        "point_win_server_p1": float(P_1),
+        "point_win_server_p2": float(P_2),
+        "game_win_on_serve_p1": float(H_1),
+        "game_win_on_serve_p2": float(H_2),
+        "set_win_p1": set_p1,
+        "set_win_p2": set_p2,
+    }
