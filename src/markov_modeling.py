@@ -1,12 +1,14 @@
 import numpy as np
 
+from dataset import serve1, serve2, return1, return2
+
 #LINES 4-9 ARE VARIABLES BASED ON REAL PLAYERS AND THE REAL TOUR AVERAGE PER SURFACE!!!
 S_avg = 0.64
 R_avg = 0.36
-S_1 = 0.7
-S_2 = 0.6
-R_1 = 0.3
-R_2 = 0.4
+S_1 = serve1
+S_2 = serve2
+R_1 = return1
+R_2 = return2
 W_1 = np.sqrt(S_avg * (1 - R_avg))
 W_2 = np.sqrt((1 - S_avg) * R_avg)
 P_1 = (S_1 * (1 - R_2) / W_1) / ((S_1 * (1 - R_2) / W_1) + (((1 - S_1) * R_2) / W_2))
@@ -259,9 +261,9 @@ def set_transition_matrix(H_1, H_2, P_1, P_2):
     A = np.dot(N, R)
 
     if A[0, 0] > A[0, 1]:
-        return("Player 1 wins the match with probability:", A[0, 0])
+        return("Player 1 wins the match with probability " + str(A[0, 0]) + ".")
     elif A[0, 1] > A[0, 0]:
-        return("Player 2 wins the match with probability:", A[0, 1])
+        return("Player 2 wins the match with probability " + str(A[0, 1]) + ".")
     else:
         return("The match is tied.")
 
