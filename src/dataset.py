@@ -4,10 +4,9 @@ url = "https://raw.githubusercontent.com/Tennismylife/TML-Database/refs/heads/ma
 df = pd.read_csv(url)
 
 def player_stats(df, player_name, surface="Clay"):
-    player_name_lower = player_name.strip().lower()
     surface_df = df[df['surface'] == surface]
-    winner_df = surface_df[surface_df['winner_name'].astype(str).str.lower() == player_name_lower]
-    loser_df = surface_df[surface_df['loser_name'].astype(str).str.lower() == player_name_lower]
+    winner_df = surface_df[surface_df['winner_name'] == player_name]
+    loser_df = surface_df[surface_df['loser_name'] == player_name]
 
     if surface_df.shape[0] == 0:
         print(f"No data found for {player_name} on {surface}.")
