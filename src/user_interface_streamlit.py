@@ -16,7 +16,7 @@ with st.sidebar:
     st.header("Player Inputs")
     player1_name = st.text_input("Player 1 name", value="Carlos Alcaraz")
     player2_name = st.text_input("Player 2 name", value="Jannik Sinner")
-    surface = st.selectbox("Surface", ["Clay", "Hard", "Grass"], index=0)
+    surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"], index=0)
     st.markdown(
         "---\n" 
         "Enter two players and choose a surface. The model pulls historical serve/return estimates from the dataset and uses a Markov chain to compute win probabilities."
@@ -48,9 +48,9 @@ if st.button("Compute probabilities"):
 
         st.markdown("### Win Probabilities")
         score_cols = st.columns(3)
-        score_cols[0].metric("Point Win %", f"{p1['point_win_pct'] * 100:.1f}%", delta=f"{(p1['point_win_pct'] - p2['point_win_pct']) * 100:+.1f}%")
-        score_cols[1].metric("Game Win %", f"{p1['game_win_pct'] * 100:.1f}%", delta=f"{(p1['game_win_pct'] - p2['game_win_pct']) * 100:+.1f}%")
-        score_cols[2].metric("Set Win % if serves first", f"{p1['set_win_pct_if_serves_first'] * 100:.1f}%", delta=f"{(p1['set_win_pct_if_serves_first'] - p2['set_win_pct_if_serves_first']) * 100:+.1f}%")
+        score_cols[0].metric("Service Point Win %", f"{p1['service_point_win_pct'] * 100:.1f}%", delta=f"{(p1['service_point_win_pct'] - p2['service_point_win_pct']) * 100:+.1f}%")
+        score_cols[1].metric("Service Game Win %", f"{p1['service_game_win_pct'] * 100:.1f}%", delta=f"{(p1['service_game_win_pct'] - p2['service_game_win_pct']) * 100:+.1f}%")
+        score_cols[2].metric("Set Win %", f"{p1['set_win_pct'] * 100:.1f}%", delta=f"{(p1['set_win_pct'] - p2['set_win_pct']) * 100:+.1f}%")
 
         st.markdown("#### Player 1 breakdown")
         st.write(
