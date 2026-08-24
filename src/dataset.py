@@ -41,8 +41,8 @@ def player_stats(df, player_name, surface="Hard", tour="ATP"):
     svpts_won = (
         winner_df["w_1stWon"].sum()
         + winner_df["w_2ndWon"].sum()
-        + loser_df["w_1stWon"].sum()
-        + loser_df["w_2ndWon"].sum()
+        + loser_df["l_1stWon"].sum()
+        + loser_df["l_2ndWon"].sum()
     )
 
     rtpts_won = (
