@@ -137,8 +137,14 @@ with st.sidebar:
         st.rerun()
     st.markdown("## Match setup")
     st.caption("Choose a matchup and court surface to model the probabilities.")
-    player1_name = st.text_input("Player 1", value="Carlos Alcaraz")
-    player2_name = st.text_input("Player 2", value="Jannik Sinner")
+    tour = st.selectbox("Tour", ["ATP", "WTA"])
+    default_players = {
+        "ATP": ("Carlos Alcaraz", "Jannik Sinner"),
+        "WTA": ("Aryna Sabalenka", "Iga Swiatek"),
+    }
+    player1_default, player2_default = default_players[tour]
+    player1_name = st.text_input("Player 1", value=player1_default, key=f"player1_{tour}")
+    player2_name = st.text_input("Player 2", value=player2_default, key=f"player2_{tour}")
     surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"])
     st.markdown("---")
     st.caption("Rates are estimated from the match dataset. Unknown players use default estimates.")
@@ -162,6 +168,7 @@ st.markdown('<div class="section-label">Match configuration</div>', unsafe_allow
 st.markdown(
     f"""
     <div class="context">
+        <div><span>Tour</span><strong>{tour}</strong></div>
         <div><span>Surface</span><strong>{surface}</strong></div>
         <div><span>Player 1</span><strong>{player1_name.strip() or 'Not selected'}</strong></div>
         <div><span>Player 2</span><strong>{player2_name.strip() or 'Not selected'}</strong></div>
@@ -177,7 +184,9 @@ if st.button("Calculate match probabilities", type="primary"):
         st.warning("Please enter two different player names.")
     else:
         with st.spinner("Running the point-to-set model..."):
-            results = compute_player_probabilities(player1_name.strip(), player2_name.strip(), surface)
+            results = compute_player_probabilities(
+                player1_name.strip(), player2_name.strip(), surface, tour
+            )
 
         p1, p2 = results["player1"], results["player2"]
         st.markdown('<div class="section-label">Projected win rates</div>', unsafe_allow_html=True)

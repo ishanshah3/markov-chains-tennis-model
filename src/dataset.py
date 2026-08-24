@@ -1,14 +1,24 @@
 import pandas as pd
 from functools import lru_cache
+from pathlib import Path
 
-DATA_URL = "https://raw.githubusercontent.com/Tennismylife/TML-Database/refs/heads/master/2025.csv"
+DATA_DIR = Path(__file__).resolve().parent.parent / "tml-data"
+DATA_FILES = {
+    "ATP": DATA_DIR / "2025.csv",
+    "WTA": DATA_DIR / "2025_wta.csv",
+}
 DEFAULT_SERVE_WIN = 0.60
 DEFAULT_RETURN_WIN = 0.30
 
-@lru_cache(maxsize=1)
-def load_dataset():
-    """Load the tennis dataset and cache it for the session."""
-    return pd.read_csv(DATA_URL)
+@lru_cache(maxsize=2)
+def load_dataset(tour="ATP"):
+    """Load and cache the local 2025 dataset for a tour."""
+    try:
+        data_file = DATA_FILES[tour.upper()]
+    except KeyError as error:
+        raise ValueError("tour must be either 'ATP' or 'WTA'") from error
+
+    return pd.read_csv(data_file)
 
 
 def player_stats(df, player_name, surface="Hard"):
