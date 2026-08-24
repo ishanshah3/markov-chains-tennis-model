@@ -15,8 +15,41 @@ def percentage(value):
     return f"{value * 100:.1f}%"
 
 
+default_players = {
+    "ATP": ("Carlos Alcaraz", "Jannik Sinner"),
+    "WTA": ("Aryna Sabalenka", "Iga Swiatek"),
+}
+
+
+def save_player_inputs():
+    tour = st.session_state.tour
+    st.session_state.players_by_tour[tour] = (
+        st.session_state.player1_name,
+        st.session_state.player2_name,
+    )
+
+
+def switch_tour():
+    tour = st.session_state.tour
+    player1_name, player2_name = st.session_state.players_by_tour[tour]
+    st.session_state.player1_name = player1_name
+    st.session_state.player2_name = player2_name
+
+
+def toggle_dark_mode():
+    st.session_state.dark_mode = not st.session_state.dark_mode
+
+
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
+if "tour" not in st.session_state:
+    st.session_state.tour = "ATP"
+if "players_by_tour" not in st.session_state:
+    st.session_state.players_by_tour = default_players.copy()
+if "player1_name" not in st.session_state:
+    st.session_state.player1_name = st.session_state.players_by_tour[st.session_state.tour][0]
+if "player2_name" not in st.session_state:
+    st.session_state.player2_name = st.session_state.players_by_tour[st.session_state.tour][1]
 
 dark_mode = st.session_state.dark_mode
 theme_class = "theme-dark" if dark_mode else "theme-light"
@@ -132,19 +165,17 @@ st.markdown(
 
 with st.sidebar:
     mode_label = "Switch to light mode" if dark_mode else "Switch to dark mode"
-    if st.button(mode_label, key="mode_button", use_container_width=True):
-        st.session_state.dark_mode = not dark_mode
-        st.rerun()
+    st.button(
+        mode_label,
+        key="mode_button",
+        use_container_width=True,
+        on_click=toggle_dark_mode,
+    )
     st.markdown("## Match setup")
     st.caption("Choose a matchup and court surface to model the probabilities.")
-    tour = st.selectbox("Tour", ["ATP", "WTA"])
-    default_players = {
-        "ATP": ("Carlos Alcaraz", "Jannik Sinner"),
-        "WTA": ("Aryna Sabalenka", "Iga Swiatek"),
-    }
-    player1_default, player2_default = default_players[tour]
-    player1_name = st.text_input("Player 1", value=player1_default, key=f"player1_{tour}")
-    player2_name = st.text_input("Player 2", value=player2_default, key=f"player2_{tour}")
+    tour = st.selectbox("Tour", ["ATP", "WTA"], key="tour", on_change=switch_tour)
+    player1_name = st.text_input("Player 1", key="player1_name", on_change=save_player_inputs)
+    player2_name = st.text_input("Player 2", key="player2_name", on_change=save_player_inputs)
     surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"])
     st.markdown("---")
     st.caption("Rates are estimated from the match dataset. Unknown players use default estimates.")
