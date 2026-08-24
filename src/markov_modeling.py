@@ -209,8 +209,8 @@ def compute_player_probabilities(
 ):
     df = load_dataset(tour)
 
-    player1_stats = player_stats(df, player1_name, surface)
-    player2_stats = player_stats(df, player2_name, surface)
+    player1_stats = player_stats(df, player1_name, surface, tour)
+    player2_stats = player_stats(df, player2_name, surface, tour)
 
     p1_serve = player1_stats["serve_pct"]
     p1_return = player1_stats["return_pct"]

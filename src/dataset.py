@@ -7,8 +7,11 @@ DATA_FILES = {
     "ATP": DATA_DIR / "2025.csv",
     "WTA": DATA_DIR / "2025_wta.csv",
 }
-DEFAULT_SERVE_WIN = 0.60
-DEFAULT_RETURN_WIN = 0.30
+
+DEFAULTS_BY_TOUR = {
+    "ATP": (0.60, 0.30),
+    "WTA": (0.50, 0.40),
+}
 
 @lru_cache(maxsize=2)
 def load_dataset(tour="ATP"):
@@ -21,16 +24,17 @@ def load_dataset(tour="ATP"):
     return pd.read_csv(data_file)
 
 
-def player_stats(df, player_name, surface="Hard"):
+def player_stats(df, player_name, surface="Hard", tour="ATP"):
     """Return serve/return win percentages for a player on a surface."""
+    default_serve_win, default_return_win = DEFAULTS_BY_TOUR[tour.upper()]
     surface_df = df[df["surface"] == surface]
     winner_df = surface_df[surface_df["winner_name"] == player_name]
     loser_df = surface_df[surface_df["loser_name"] == player_name]
 
     if surface_df.shape[0] == 0 or (len(winner_df) == 0 and len(loser_df) == 0):
         return {
-            "serve_pct": DEFAULT_SERVE_WIN,
-            "return_pct": DEFAULT_RETURN_WIN,
+            "serve_pct": default_serve_win,
+            "return_pct": default_return_win,
             "found": False,
         }
 
@@ -53,8 +57,8 @@ def player_stats(df, player_name, surface="Hard"):
 
     if total_svpts == 0 or total_rtpts == 0:
         return {
-            "serve_pct": DEFAULT_SERVE_WIN,
-            "return_pct": DEFAULT_RETURN_WIN,
+            "serve_pct": default_serve_win,
+            "return_pct": default_return_win,
             "found": False,
         }
 
