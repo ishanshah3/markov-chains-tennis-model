@@ -4,8 +4,8 @@ from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "tml-data"
 DATA_FILES = {
-    "ATP": DATA_DIR / "2025.csv",
-    "WTA": DATA_DIR / "2025_wta.csv",
+    "ATP": [DATA_DIR / "2025.csv", DATA_DIR / "2026.csv"],
+    "WTA": [DATA_DIR / "2025_wta.csv", DATA_DIR / "2026_wta.csv"],
 }
 
 DEFAULTS_BY_TOUR = {
@@ -15,13 +15,13 @@ DEFAULTS_BY_TOUR = {
 
 @lru_cache(maxsize=2)
 def load_dataset(tour="ATP"):
-    """Load and cache the local 2025 dataset for a tour."""
+    """Load and cache the combined 2025 and 2026 dataset for a tour."""
     try:
-        data_file = DATA_FILES[tour.upper()]
+        data_files = DATA_FILES[tour.upper()]
     except KeyError as error:
         raise ValueError("tour must be either 'ATP' or 'WTA'") from error
 
-    return pd.read_csv(data_file)
+    return pd.concat((pd.read_csv(data_file) for data_file in data_files), ignore_index=True)
 
 
 def player_stats(df, player_name, surface="Hard", tour="ATP"):
