@@ -3,9 +3,10 @@ from functools import lru_cache
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "tml-data"
+HALF_LIFE_DAYS = 180
 DATA_FILES = {
-    "ATP": [DATA_DIR / "2025.csv", DATA_DIR / "2026.csv"],
-    "WTA": [DATA_DIR / "2025_wta.csv", DATA_DIR / "2026_wta.csv"],
+    "ATP": sorted(DATA_DIR.glob("[0-9][0-9][0-9][0-9].csv")),
+    "WTA": sorted(DATA_DIR.glob("[0-9][0-9][0-9][0-9]_wta.csv")),
 }
 
 DEFAULTS_BY_TOUR = {
@@ -24,10 +25,19 @@ def load_dataset(tour="ATP"):
     return pd.concat((pd.read_csv(data_file) for data_file in data_files), ignore_index=True)
 
 
-def player_stats(df, player_name, surface="Hard", tour="ATP"):
+def player_stats(df, player_name, surface="Hard", tour="ATP", as_of=None):
     """Return serve/return win percentages for a player on a surface."""
     default_serve_win, default_return_win = DEFAULTS_BY_TOUR[tour.upper()]
-    surface_df = df[df["surface"] == surface]
+    as_of = pd.Timestamp.today().normalize() if as_of is None else pd.Timestamp(as_of)
+    dated_df = df.copy()
+    dated_df["tourney_date"] = pd.to_datetime(
+        dated_df["tourney_date"].astype(str), format="%Y%m%d", errors="coerce"
+    )
+    surface_df = dated_df[
+        (dated_df["surface"] == surface)
+        & dated_df["tourney_date"].notna()
+        & (dated_df["tourney_date"] <= as_of)
+    ]
     winner_df = surface_df[surface_df["winner_name"] == player_name]
     loser_df = surface_df[surface_df["loser_name"] == player_name]
 
@@ -38,22 +48,40 @@ def player_stats(df, player_name, surface="Hard", tour="ATP"):
             "found": False,
         }
 
+    winner_weights = 0.5 ** (
+        (as_of - winner_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
+    )
+    loser_weights = 0.5 ** (
+        (as_of - loser_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
+    )
+    weighted_sum = lambda values, weights: values.mul(weights).sum()
+
     svpts_won = (
-        winner_df["w_1stWon"].sum()
-        + winner_df["w_2ndWon"].sum()
-        + loser_df["l_1stWon"].sum()
-        + loser_df["l_2ndWon"].sum()
+        weighted_sum(winner_df["w_1stWon"], winner_weights)
+        + weighted_sum(winner_df["w_2ndWon"], winner_weights)
+        + weighted_sum(loser_df["l_1stWon"], loser_weights)
+        + weighted_sum(loser_df["l_2ndWon"], loser_weights)
     )
 
     rtpts_won = (
-        winner_df["l_svpt"].sum()
-        - (winner_df["l_1stWon"].sum() + winner_df["l_2ndWon"].sum())
-        + loser_df["w_svpt"].sum()
-        - (loser_df["w_1stWon"].sum() + loser_df["w_2ndWon"].sum())
+        weighted_sum(winner_df["l_svpt"], winner_weights)
+        - (
+            weighted_sum(winner_df["l_1stWon"], winner_weights)
+            + weighted_sum(winner_df["l_2ndWon"], winner_weights)
+        )
+        + weighted_sum(loser_df["w_svpt"], loser_weights)
+        - (
+            weighted_sum(loser_df["w_1stWon"], loser_weights)
+            + weighted_sum(loser_df["w_2ndWon"], loser_weights)
+        )
     )
 
-    total_svpts = winner_df["w_svpt"].sum() + loser_df["l_svpt"].sum()
-    total_rtpts = winner_df["l_svpt"].sum() + loser_df["w_svpt"].sum()
+    total_svpts = weighted_sum(winner_df["w_svpt"], winner_weights) + weighted_sum(
+        loser_df["l_svpt"], loser_weights
+    )
+    total_rtpts = weighted_sum(winner_df["l_svpt"], winner_weights) + weighted_sum(
+        loser_df["w_svpt"], loser_weights
+    )
 
     if total_svpts == 0 or total_rtpts == 0:
         return {
