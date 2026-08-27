@@ -41,46 +41,76 @@ def player_stats(df, player_name, surface="Hard", tour="ATP", as_of=None):
     winner_df = surface_df[surface_df["winner_name"] == player_name]
     loser_df = surface_df[surface_df["loser_name"] == player_name]
 
-    if surface_df.shape[0] == 0 or (len(winner_df) == 0 and len(loser_df) == 0):
+    def valid_serve_rows(frame, prefix):
+        columns = [f"{prefix}_svpt", f"{prefix}_1stWon", f"{prefix}_2ndWon"]
+        stats = frame[columns].apply(pd.to_numeric, errors="coerce")
+        return stats.notna().all(axis=1) & stats.ge(0).all(axis=1) & (
+            stats[f"{prefix}_1stWon"] + stats[f"{prefix}_2ndWon"]
+            <= stats[f"{prefix}_svpt"]
+        )
+
+    valid_winner_stats = valid_serve_rows(winner_df, "w")
+    valid_loser_stats = valid_serve_rows(loser_df, "l")
+    winner_serve_df = winner_df[valid_winner_stats]
+    loser_serve_df = loser_df[valid_loser_stats]
+    winner_return_df = winner_df[valid_serve_rows(winner_df, "l")]
+    loser_return_df = loser_df[valid_serve_rows(loser_df, "w")]
+
+    if surface_df.shape[0] == 0 or (
+        len(winner_serve_df) == 0
+        and len(loser_serve_df) == 0
+        and len(winner_return_df) == 0
+        and len(loser_return_df) == 0
+    ):
         return {
             "serve_pct": default_serve_win,
             "return_pct": default_return_win,
             "found": False,
         }
 
-    winner_weights = 0.5 ** (
-        (as_of - winner_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
+    winner_serve_weights = 0.5 ** (
+        (as_of - winner_serve_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
     )
-    loser_weights = 0.5 ** (
-        (as_of - loser_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
+    loser_serve_weights = 0.5 ** (
+        (as_of - loser_serve_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
+    )
+    winner_return_weights = 0.5 ** (
+        (as_of - winner_return_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
+    )
+    loser_return_weights = 0.5 ** (
+        (as_of - loser_return_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
     )
     weighted_sum = lambda values, weights: values.mul(weights).sum()
 
     svpts_won = (
-        weighted_sum(winner_df["w_1stWon"], winner_weights)
-        + weighted_sum(winner_df["w_2ndWon"], winner_weights)
-        + weighted_sum(loser_df["l_1stWon"], loser_weights)
-        + weighted_sum(loser_df["l_2ndWon"], loser_weights)
+        weighted_sum(winner_serve_df["w_1stWon"], winner_serve_weights)
+        + weighted_sum(winner_serve_df["w_2ndWon"], winner_serve_weights)
+        + weighted_sum(loser_serve_df["l_1stWon"], loser_serve_weights)
+        + weighted_sum(loser_serve_df["l_2ndWon"], loser_serve_weights)
     )
 
     rtpts_won = (
-        weighted_sum(winner_df["l_svpt"], winner_weights)
+        weighted_sum(winner_return_df["l_svpt"], winner_return_weights)
         - (
-            weighted_sum(winner_df["l_1stWon"], winner_weights)
-            + weighted_sum(winner_df["l_2ndWon"], winner_weights)
+            weighted_sum(winner_return_df["l_1stWon"], winner_return_weights)
+            + weighted_sum(winner_return_df["l_2ndWon"], winner_return_weights)
         )
-        + weighted_sum(loser_df["w_svpt"], loser_weights)
+        + weighted_sum(loser_return_df["w_svpt"], loser_return_weights)
         - (
-            weighted_sum(loser_df["w_1stWon"], loser_weights)
-            + weighted_sum(loser_df["w_2ndWon"], loser_weights)
+            weighted_sum(loser_return_df["w_1stWon"], loser_return_weights)
+            + weighted_sum(loser_return_df["w_2ndWon"], loser_return_weights)
         )
     )
 
-    total_svpts = weighted_sum(winner_df["w_svpt"], winner_weights) + weighted_sum(
-        loser_df["l_svpt"], loser_weights
+    total_svpts = weighted_sum(
+        winner_serve_df["w_svpt"], winner_serve_weights
+    ) + weighted_sum(
+        loser_serve_df["l_svpt"], loser_serve_weights
     )
-    total_rtpts = weighted_sum(winner_df["l_svpt"], winner_weights) + weighted_sum(
-        loser_df["w_svpt"], loser_weights
+    total_rtpts = weighted_sum(
+        winner_return_df["l_svpt"], winner_return_weights
+    ) + weighted_sum(
+        loser_return_df["w_svpt"], loser_return_weights
     )
 
     if total_svpts == 0 or total_rtpts == 0:
