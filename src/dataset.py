@@ -9,11 +9,6 @@ DATA_FILES = {
     "WTA": sorted(DATA_DIR.glob("[0-9][0-9][0-9][0-9]_wta.csv")),
 }
 
-DEFAULTS_BY_TOUR = {
-    "ATP": (0.60, 0.30),
-    "WTA": (0.50, 0.40),
-}
-
 @lru_cache(maxsize=2)
 def load_dataset(tour="ATP"):
     """Load and cache the combined 2025 and 2026 dataset for a tour."""
@@ -25,19 +20,66 @@ def load_dataset(tour="ATP"):
     return pd.concat((pd.read_csv(data_file) for data_file in data_files), ignore_index=True)
 
 
+def _average_rates(df):
+    """Calculate aggregate serve and return win rates from match point totals."""
+    numeric_df = df.copy()
+
+    def valid_rows(frame, prefix):
+        columns = [f"{prefix}_svpt", f"{prefix}_1stWon", f"{prefix}_2ndWon"]
+        stats = frame[columns].apply(pd.to_numeric, errors="coerce")
+        return stats.notna().all(axis=1) & stats.ge(0).all(axis=1) & (
+            stats[f"{prefix}_1stWon"] + stats[f"{prefix}_2ndWon"]
+            <= stats[f"{prefix}_svpt"]
+        )
+
+    for prefix in ("w", "l"):
+        columns = [f"{prefix}_svpt", f"{prefix}_1stWon", f"{prefix}_2ndWon"]
+        numeric_df[columns] = numeric_df[columns].apply(pd.to_numeric, errors="coerce")
+
+    winner_serve_df = numeric_df[valid_rows(numeric_df, "w")]
+    loser_serve_df = numeric_df[valid_rows(numeric_df, "l")]
+    winner_return_df = numeric_df[valid_rows(numeric_df, "l")]
+    loser_return_df = numeric_df[valid_rows(numeric_df, "w")]
+
+    serve_total = winner_serve_df["w_svpt"].sum() + loser_serve_df["l_svpt"].sum()
+    serve_won = (
+        winner_serve_df["w_1stWon"].sum()
+        + winner_serve_df["w_2ndWon"].sum()
+        + loser_serve_df["l_1stWon"].sum()
+        + loser_serve_df["l_2ndWon"].sum()
+    )
+    return_total = winner_return_df["l_svpt"].sum() + loser_return_df["w_svpt"].sum()
+    return_won = (
+        winner_return_df["l_svpt"].sum()
+        - winner_return_df["l_1stWon"].sum()
+        - winner_return_df["l_2ndWon"].sum()
+        + loser_return_df["w_svpt"].sum()
+        - loser_return_df["w_1stWon"].sum()
+        - loser_return_df["w_2ndWon"].sum()
+    )
+
+    if serve_total == 0 or return_total == 0:
+        return None
+
+    return serve_won / serve_total, return_won / return_total
+
+
 def player_stats(df, player_name, surface="Hard", tour="ATP", as_of=None):
     """Return serve/return win percentages for a player on a surface."""
-    default_serve_win, default_return_win = DEFAULTS_BY_TOUR[tour.upper()]
+    tour = tour.upper()
+    if tour not in DATA_FILES:
+        raise ValueError("tour must be either 'ATP' or 'WTA'")
     as_of = pd.Timestamp.today().normalize() if as_of is None else pd.Timestamp(as_of)
     dated_df = df.copy()
     dated_df["tourney_date"] = pd.to_datetime(
         dated_df["tourney_date"].astype(str), format="%Y%m%d", errors="coerce"
     )
-    surface_df = dated_df[
-        (dated_df["surface"] == surface)
-        & dated_df["tourney_date"].notna()
-        & (dated_df["tourney_date"] <= as_of)
+    eligible_df = dated_df[
+        dated_df["tourney_date"].notna() & (dated_df["tourney_date"] <= as_of)
     ]
+    surface_df = eligible_df[eligible_df["surface"] == surface]
+    defaults = _average_rates(surface_df) or _average_rates(eligible_df) or (0.5, 0.5)
+    default_serve_win, default_return_win = defaults
     winner_df = surface_df[surface_df["winner_name"] == player_name]
     loser_df = surface_df[surface_df["loser_name"] == player_name]
 
