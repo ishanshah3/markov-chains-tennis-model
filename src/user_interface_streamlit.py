@@ -254,7 +254,7 @@ with st.container(key="match_setup"):
         )
     with setup_cols[4]:
         surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"])
-    st.caption("Rates are estimated from the Tennis My Life (TML) match dataset. Unknown players use default estimates per surface.")
+    st.caption("Rates are calculated using the Tennis My Life (TML) match dataset. Unknown players use default estimates per surface.")
 
 if st.button("Calculate match probabilities", type="primary"):
     if not player1_name.strip() or not player2_name.strip():
