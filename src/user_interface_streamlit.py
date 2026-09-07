@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Adjusted Markov Model | Tennis Predictions",
     page_icon="🎾",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -153,6 +153,10 @@ st.markdown(
     .hero {{ display: flex; justify-content: space-between; gap: 2rem; align-items: end; padding-bottom: 2.8rem; border-bottom: 1px solid var(--line); margin-bottom: 2rem; }}
     .hero-mark {{ color: var(--court); font-size: 5rem; line-height: 1; transform: rotate(-18deg); opacity: .85; }}
     .section-label {{ color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; margin: 2rem 0 .8rem; }}
+    .st-key-match_setup {{ background: var(--court-dark); border-radius: 14px; box-shadow: var(--shadow); padding: 1rem 1.25rem .8rem; }}
+    .st-key-match_setup .section-label {{ color: #a8d5bd; margin: 0 0 .35rem; }}
+    .st-key-match_setup [data-testid="stCaptionContainer"] p {{ color: #d8eee0 !important; }}
+    .st-key-match_setup label, .st-key-match_setup label p {{ color: #f4fff8 !important; }}
     .context {{ background: var(--court-dark); border-radius: 14px; color: #f4fff8; padding: 1rem 1.25rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; box-shadow: var(--shadow); }}
     .context span {{ color: #a8d5bd; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }}
     .context strong {{ color: #ffffff; display: block; font-size: 1.05rem; margin-top: .25rem; }}
@@ -202,36 +206,6 @@ st.markdown(
 )
 
 
-with st.sidebar:
-    mode_label = "Switch to light mode" if dark_mode else "Switch to dark mode"
-    st.button(
-        mode_label,
-        key="mode_button",
-        use_container_width=True,
-        on_click=toggle_dark_mode,
-    )
-    st.markdown("## Match setup")
-    st.caption("Choose a matchup and court surface to model the probabilities.")
-    tour = st.selectbox("Tour", ["ATP", "WTA"], key="tour", on_change=switch_tour)
-    player_names = player_names_for_tour(tour)
-    for player_key, default_name in zip(
-        ("player1_name", "player2_name"), default_players[tour]
-    ):
-        if st.session_state[player_key] not in player_names:
-            st.session_state[player_key] = (
-                default_name if default_name in player_names else player_names[0]
-            )
-    player1_name = st.selectbox(
-        "Player 1", player_names, key="player1_name", on_change=save_player_inputs
-    )
-    player2_name = st.selectbox(
-        "Player 2", player_names, key="player2_name", on_change=save_player_inputs
-    )
-    surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"])
-    st.markdown("---")
-    st.caption("Rates are estimated from the match dataset. Unknown players use default estimates.")
-
-
 st.markdown(
     """
     <div class="hero">
@@ -245,18 +219,38 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="section-label">Match configuration</div>', unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <div class="context">
-        <div><span>Tour</span><strong>{tour}</strong></div>
-        <div><span>Surface</span><strong>{surface}</strong></div>
-        <div><span>Player 1</span><strong>{player1_name.strip() or 'Not selected'}</strong></div>
-        <div><span>Player 2</span><strong>{player2_name.strip() or 'Not selected'}</strong></div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+mode_label = "Switch to light mode" if dark_mode else "Switch to dark mode"
+mode_col, _ = st.columns([1, 4])
+with mode_col:
+    st.button(mode_label, key="mode_button", on_click=toggle_dark_mode)
+
+with st.container(key="match_setup"):
+    st.markdown('<div class="section-label">Match setup</div>', unsafe_allow_html=True)
+    st.caption("Choose a tour, matchup, and court surface to model the probabilities.")
+    setup_cols = st.columns([1, 1.7, 1.7, 1])
+    with setup_cols[0]:
+        tour = st.selectbox("Tour", ["ATP", "WTA"], key="tour", on_change=switch_tour)
+
+    player_names = player_names_for_tour(tour)
+    for player_key, default_name in zip(
+        ("player1_name", "player2_name"), default_players[tour]
+    ):
+        if st.session_state[player_key] not in player_names:
+            st.session_state[player_key] = (
+                default_name if default_name in player_names else player_names[0]
+            )
+
+    with setup_cols[1]:
+        player1_name = st.selectbox(
+            "Player 1", player_names, key="player1_name", on_change=save_player_inputs
+        )
+    with setup_cols[2]:
+        player2_name = st.selectbox(
+            "Player 2", player_names, key="player2_name", on_change=save_player_inputs
+        )
+    with setup_cols[3]:
+        surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"])
+    st.caption("Rates are estimated from the Tennis My Life (TML) match dataset. Unknown players use default estimates per surface.")
 
 if st.button("Calculate match probabilities", type="primary"):
     if not player1_name.strip() or not player2_name.strip():
