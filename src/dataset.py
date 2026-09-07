@@ -1,23 +1,86 @@
 import pandas as pd
+from datetime import date
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "tml-data"
+CURRENT_YEAR = date.today().year
 HALF_LIFE_DAYS = 180
 DATA_FILES = {
-    "ATP": sorted(DATA_DIR.glob("[0-9][0-9][0-9][0-9].csv")),
-    "WTA": sorted(DATA_DIR.glob("[0-9][0-9][0-9][0-9]_wta.csv")),
+    "ATP": sorted(
+        path for path in DATA_DIR.glob("[0-9][0-9][0-9][0-9].csv")
+        if path.stem != str(CURRENT_YEAR)
+    ),
+    "WTA": sorted(
+        path for path in DATA_DIR.glob("[0-9][0-9][0-9][0-9]_wta.csv")
+        if path.stem != f"{CURRENT_YEAR}_wta"
+    ),
 }
+ONGOING_FILES = {
+    "ATP": DATA_DIR / "ongoing_tourneys.csv",
+    "WTA": DATA_DIR / "wta_ongoing_tourneys.csv",
+}
+TML_DATA_URLS = {
+    "ATP": "https://stats.tennismylife.org/data/{year}.csv",
+    "WTA": "https://stats.tennismylife.org/data/{year}_wta.csv",
+}
+TML_ONGOING_URLS = {
+    "ATP": "https://stats.tennismylife.org/data/ongoing_tourneys.csv",
+    "WTA": "https://stats.tennismylife.org/data/wta_ongoing_tourneys.csv",
+}
+POINT_COLUMNS = [
+    "w_svpt",
+    "w_1stWon",
+    "w_2ndWon",
+    "l_svpt",
+    "l_1stWon",
+    "l_2ndWon",
+]
+
+
+def _normalize_point_columns(frame):
+    available_columns = [column for column in POINT_COLUMNS if column in frame]
+    frame[available_columns] = frame[available_columns].apply(
+        pd.to_numeric, errors="coerce"
+    )
+    return frame
+
+
+def _load_live_or_local(url, local_file):
+    try:
+        return pd.read_csv(url) if url else pd.read_csv(local_file)
+    except (OSError, ValueError):
+        return pd.read_csv(local_file) if local_file.exists() else None
 
 @lru_cache(maxsize=2)
 def load_dataset(tour="ATP"):
-    """Load and cache the combined 2025 and 2026 dataset for a tour."""
+    """Load local historical data and live current-year data."""
     try:
-        data_files = DATA_FILES[tour.upper()]
+        tour = tour.upper()
+        data_files = DATA_FILES[tour]
     except KeyError as error:
         raise ValueError("tour must be either 'ATP' or 'WTA'") from error
 
-    return pd.concat((pd.read_csv(data_file) for data_file in data_files), ignore_index=True)
+    ongoing_file = ONGOING_FILES[tour]
+    current_file = DATA_DIR / (
+        f"{CURRENT_YEAR}.csv" if tour == "ATP" else f"{CURRENT_YEAR}_wta.csv"
+    )
+    frames = [pd.read_csv(data_file) for data_file in data_files]
+    live_jobs = [
+        (TML_ONGOING_URLS[tour], ongoing_file),
+        (TML_DATA_URLS[tour].format(year=CURRENT_YEAR), current_file),
+    ]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        frames.extend(
+            executor.map(lambda job: _load_live_or_local(*job), live_jobs)
+        )
+    frames = [
+        _normalize_point_columns(frame) for frame in frames if frame is not None
+    ]
+    return pd.concat(frames, ignore_index=True).drop_duplicates(
+        subset=["tourney_id", "match_num"], keep="last"
+    ).reset_index(drop=True)
 
 
 def _average_rates(df):

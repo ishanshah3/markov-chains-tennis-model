@@ -1,5 +1,7 @@
 import streamlit as st
+from concurrent.futures import ThreadPoolExecutor
 
+from dataset import load_dataset
 from markov_modeling import compute_player_probabilities
 
 
@@ -40,6 +42,14 @@ def toggle_dark_mode():
     st.session_state.dark_mode = not st.session_state.dark_mode
 
 
+def start_dataset_warmup():
+    executor = ThreadPoolExecutor(max_workers=1)
+    st.session_state.dataset_warmup_executor = executor
+    st.session_state.dataset_warmup = {
+        tour: executor.submit(load_dataset, tour) for tour in ("ATP", "WTA")
+    }
+
+
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 if "tour" not in st.session_state:
@@ -50,6 +60,8 @@ if "player1_name" not in st.session_state:
     st.session_state.player1_name = st.session_state.players_by_tour[st.session_state.tour][0]
 if "player2_name" not in st.session_state:
     st.session_state.player2_name = st.session_state.players_by_tour[st.session_state.tour][1]
+if "dataset_warmup" not in st.session_state:
+    start_dataset_warmup()
 
 dark_mode = st.session_state.dark_mode
 theme_class = "theme-dark" if dark_mode else "theme-light"
@@ -215,6 +227,7 @@ if st.button("Calculate match probabilities", type="primary"):
         st.warning("Please enter two different player names.")
     else:
         with st.spinner("Running the point-to-set model..."):
+            st.session_state.dataset_warmup[tour].result()
             results = compute_player_probabilities(
                 player1_name.strip(), player2_name.strip(), surface, tour
             )
