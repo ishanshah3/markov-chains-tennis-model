@@ -2,11 +2,11 @@ import streamlit as st
 from concurrent.futures import ThreadPoolExecutor
 
 from dataset import load_dataset
-from markov_modeling import compute_player_probabilities
+from adjusted_markov_model import compute_player_probabilities
 
 
 st.set_page_config(
-    page_title="Match Point | Tennis Probability Lab",
+    page_title="Adjusted Markov Model | Tennis Predictions",
     page_icon="🎾",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -48,6 +48,33 @@ def start_dataset_warmup():
     st.session_state.dataset_warmup = {
         tour: executor.submit(load_dataset, tour) for tour in ("ATP", "WTA")
     }
+
+
+def player_names_for_tour(tour):
+    dataset = st.session_state.dataset_warmup[tour].result()
+    winner_stats = dataset[["w_svpt", "w_1stWon", "w_2ndWon"]]
+    loser_stats = dataset[["l_svpt", "l_1stWon", "l_2ndWon"]]
+    valid_winner_stats = winner_stats.notna().all(axis=1) & (
+        winner_stats["w_1stWon"] + winner_stats["w_2ndWon"]
+        <= winner_stats["w_svpt"]
+    )
+    valid_loser_stats = loser_stats.notna().all(axis=1) & (
+        loser_stats["l_1stWon"] + loser_stats["l_2ndWon"]
+        <= loser_stats["l_svpt"]
+    )
+    serve_names = set(dataset.loc[valid_winner_stats, "winner_name"].dropna()) | set(
+        dataset.loc[valid_loser_stats, "loser_name"].dropna()
+    )
+    return_names = set(dataset.loc[valid_loser_stats, "winner_name"].dropna()) | set(
+        dataset.loc[valid_winner_stats, "loser_name"].dropna()
+    )
+    names = serve_names & return_names
+    normalized_names = {str(name).strip() for name in names if str(name).strip()}
+    return sorted(
+        name
+        for name in normalized_names
+        if "." not in name or name.lower().endswith((" jr.", " sr."))
+    )
 
 
 if "dark_mode" not in st.session_state:
@@ -186,8 +213,20 @@ with st.sidebar:
     st.markdown("## Match setup")
     st.caption("Choose a matchup and court surface to model the probabilities.")
     tour = st.selectbox("Tour", ["ATP", "WTA"], key="tour", on_change=switch_tour)
-    player1_name = st.text_input("Player 1", key="player1_name", on_change=save_player_inputs)
-    player2_name = st.text_input("Player 2", key="player2_name", on_change=save_player_inputs)
+    player_names = player_names_for_tour(tour)
+    for player_key, default_name in zip(
+        ("player1_name", "player2_name"), default_players[tour]
+    ):
+        if st.session_state[player_key] not in player_names:
+            st.session_state[player_key] = (
+                default_name if default_name in player_names else player_names[0]
+            )
+    player1_name = st.selectbox(
+        "Player 1", player_names, key="player1_name", on_change=save_player_inputs
+    )
+    player2_name = st.selectbox(
+        "Player 2", player_names, key="player2_name", on_change=save_player_inputs
+    )
     surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"])
     st.markdown("---")
     st.caption("Rates are estimated from the match dataset. Unknown players use default estimates.")
@@ -197,11 +236,10 @@ st.markdown(
     """
     <div class="hero">
         <div>
-            <div class="eyebrow">Match Point / Probability Lab</div>
-            <h1>Read the match<br>before it starts.</h1>
-            <p class="lede">A clear view of how serve quality, return pressure, and surface shape the path from point to set.</p>
+            <div class="eyebrow">Adjusted Markov Model | Tennis Predictions</div>
+            <h1>Adjusted Markov Chain<br>Tennis Model</h1>
+            <p class="lede">How serve strength, return quality, and surface, based on historical point data shape the path from point to set.</p>
         </div>
-        <div class="hero-mark">✦</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -237,7 +275,7 @@ if st.button("Calculate match probabilities", type="primary"):
         summary = [
             ("Service point", p1["point_win_pct"], p2["point_win_pct"]),
             ("Service game", p1["game_win_pct"], p2["game_win_pct"]),
-            ("Set win %", p1["set_win_pct_if_serves_first"], p2["set_win_pct_if_serves_first"]),
+            ("Set win %", p1["set_win_pct"], p2["set_win_pct"]),
         ]
         metric_cols = st.columns(3, gap="medium")
         for column, (label, p1_value, p2_value) in zip(metric_cols, summary):
@@ -268,7 +306,7 @@ if st.button("Calculate match probabilities", type="primary"):
                         <div class="stat-row primary"><span>Win on return</span><strong>{percentage(player['return_pct'])}</strong></div>
                         <div class="stat-row"><span>Service point win</span><strong>{percentage(player['point_win_pct'])}</strong></div>
                         <div class="stat-row"><span>Service game win</span><strong>{percentage(player['game_win_pct'])}</strong></div>
-                        <div class="stat-row"><span>Set win %</span><strong>{percentage(player['set_win_pct_if_serves_first'])}</strong></div>
+                        <div class="stat-row"><span>Set win %</span><strong>{percentage(player['set_win_pct'])}</strong></div>
                         <div class="note">{source_note} on {surface}</div>
                     </div>
                     """,

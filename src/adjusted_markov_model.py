@@ -223,8 +223,8 @@ def compute_player_probabilities(
     p1_game = game_transition_matrix(p1_point)
     p2_game = game_transition_matrix(p2_point)
 
-    p1_set_if_serves_first = set_transition_matrix(p1_game, p2_game)
-    p2_set_if_serves_first = set_transition_matrix(p2_game, p1_game)
+    p1_set_win = set_transition_matrix(p1_game, p2_game)
+    p2_set_win = 1.0 - p1_set_win
 
     return {
         "player1": {
@@ -233,7 +233,7 @@ def compute_player_probabilities(
             "return_pct": float(p1_return),
             "point_win_pct": float(p1_point),
             "game_win_pct": float(p1_game),
-            "set_win_pct_if_serves_first": float(p1_set_if_serves_first),
+            "set_win_pct": float(p1_set_win),
             "found": player1_stats.get("found", False),
         },
         "player2": {
@@ -242,7 +242,7 @@ def compute_player_probabilities(
             "return_pct": float(p2_return),
             "point_win_pct": float(p2_point),
             "game_win_pct": float(p2_game),
-            "set_win_pct_if_serves_first": float(p2_set_if_serves_first),
+            "set_win_pct": float(p2_set_win),
             "found": player2_stats.get("found", False),
         },
         "surface": surface,
