@@ -1,6 +1,6 @@
 # markov-chains-tennis-simulation
 
-This project aims to use altered markov chains to more accurately predict the results of both ATP and WTA singles tennis matches.
+This project aims to use adjusted markov modeling to more accurately predict the results of both ATP and WTA singles tennis matches.
 
 ## Key Features
 
