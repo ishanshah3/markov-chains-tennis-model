@@ -15,7 +15,7 @@ This project aims to use altered markov chains to more accurately predict the re
 
 ## Data
 
-ATP and WTA databases use match data and statistics from [Tennis My Life](https://stats.tennismylife.org/tennis-match-database) (TML) - [MIT License](https://opensource.org/license/MIT).
+ATP and WTA databases use match data and statistics from [Tennis My Life](https://stats.tennismylife.org/tennis-match-database) (TML). TML is credited as the data source, and the TML data is available under the [MIT License](https://opensource.org/license/MIT).
 
 Historical data is read from the local CSV files. The app refreshes current-year and ongoing ATP/WTA data from TML when it starts, using the local current-year files as fallbacks if TML is unavailable. Refreshed data is held in local memory and is not written back to the repository. Historical corrections require updating the local CSV files.
 
@@ -29,4 +29,4 @@ Historical data is read from the local CSV files. The app refreshes current-year
 
 ## License
 
-This project is under a [MIT License](https://opensource.org/license/MIT)
+This project's original code is available under the [MIT License](https://opensource.org/license/MIT). The third-party TML data used by the project is also available under the [MIT License](https://opensource.org/license/MIT), with Tennis My Life credited as the source.
