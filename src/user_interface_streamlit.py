@@ -1,7 +1,7 @@
 import streamlit as st
 from concurrent.futures import ThreadPoolExecutor
 
-from dataset import load_dataset
+from dataset import filter_dataset_by_mode, load_dataset
 from adjusted_markov_model import compute_player_probabilities
 
 
@@ -50,8 +50,10 @@ def start_dataset_warmup():
     }
 
 
-def player_names_for_tour(tour):
-    dataset = st.session_state.dataset_warmup[tour].result()
+def player_names_for_tour(tour, mode):
+    dataset = filter_dataset_by_mode(
+        st.session_state.dataset_warmup[tour].result(), tour, mode
+    )
     winner_stats = dataset[["w_svpt", "w_1stWon", "w_2ndWon"]]
     loser_stats = dataset[["l_svpt", "l_1stWon", "l_2ndWon"]]
     valid_winner_stats = winner_stats.notna().all(axis=1) & (
@@ -227,11 +229,13 @@ with mode_col:
 with st.container(key="match_setup"):
     st.markdown('<div class="section-label">Match setup</div>', unsafe_allow_html=True)
     st.caption("Choose a tour, matchup, and court surface to model the probabilities.")
-    setup_cols = st.columns([1, 1.7, 1.7, 1])
+    setup_cols = st.columns([1, 1, 1.7, 1.7, 1])
     with setup_cols[0]:
+        mode = st.selectbox("Data mode", ["Current", "Historical"], key="data_mode")
+    with setup_cols[1]:
         tour = st.selectbox("Tour", ["ATP", "WTA"], key="tour", on_change=switch_tour)
 
-    player_names = player_names_for_tour(tour)
+    player_names = player_names_for_tour(tour, mode)
     for player_key, default_name in zip(
         ("player1_name", "player2_name"), default_players[tour]
     ):
@@ -240,15 +244,15 @@ with st.container(key="match_setup"):
                 default_name if default_name in player_names else player_names[0]
             )
 
-    with setup_cols[1]:
+    with setup_cols[2]:
         player1_name = st.selectbox(
             "Player 1", player_names, key="player1_name", on_change=save_player_inputs
         )
-    with setup_cols[2]:
+    with setup_cols[3]:
         player2_name = st.selectbox(
             "Player 2", player_names, key="player2_name", on_change=save_player_inputs
         )
-    with setup_cols[3]:
+    with setup_cols[4]:
         surface = st.selectbox("Surface", ["Hard", "Clay", "Grass"])
     st.caption("Rates are estimated from the Tennis My Life (TML) match dataset. Unknown players use default estimates per surface.")
 
@@ -261,7 +265,7 @@ if st.button("Calculate match probabilities", type="primary"):
         with st.spinner("Running the point-to-set model..."):
             st.session_state.dataset_warmup[tour].result()
             results = compute_player_probabilities(
-                player1_name.strip(), player2_name.strip(), surface, tour
+                player1_name.strip(), player2_name.strip(), surface, tour, mode=mode
             )
 
         p1, p2 = results["player1"], results["player2"]

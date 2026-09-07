@@ -205,12 +205,17 @@ def _serve_point_model(serve_pct, opponent_return_pct):
 
 
 def compute_player_probabilities(
-    player1_name, player2_name, surface=DEFAULT_SURFACE, tour="ATP", as_of=None
+    player1_name,
+    player2_name,
+    surface=DEFAULT_SURFACE,
+    tour="ATP",
+    as_of=None,
+    mode="Historical",
 ):
     df = load_dataset(tour)
 
-    player1_stats = player_stats(df, player1_name, surface, tour, as_of)
-    player2_stats = player_stats(df, player2_name, surface, tour, as_of)
+    player1_stats = player_stats(df, player1_name, surface, tour, as_of, mode)
+    player2_stats = player_stats(df, player2_name, surface, tour, as_of, mode)
 
     p1_serve = player1_stats["serve_pct"]
     p1_return = player1_stats["return_pct"]

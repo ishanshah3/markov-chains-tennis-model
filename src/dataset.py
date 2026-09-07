@@ -7,6 +7,7 @@ from pathlib import Path
 DATA_DIR = Path(__file__).resolve().parent.parent / "tml-data"
 CURRENT_YEAR = date.today().year
 HALF_LIFE_DAYS = 180
+BLEND_PRIOR_POINTS = 100
 DATA_FILES = {
     "ATP": sorted(
         path for path in DATA_DIR.glob("[0-9][0-9][0-9][0-9].csv")
@@ -127,7 +128,21 @@ def _average_rates(df):
     return serve_won / serve_total, return_won / return_total
 
 
-def player_stats(df, player_name, surface="Hard", tour="ATP", as_of=None):
+def filter_dataset_by_mode(df, tour="ATP", mode="Historical"):
+    if mode == "Historical":
+        return df
+    recent_years = sorted(
+        int(path.stem.split("_")[0]) for path in DATA_FILES[tour.upper()]
+    )[-2:]
+    if not recent_years:
+        return df.iloc[0:0]
+    dates = pd.to_datetime(df["tourney_date"].astype(str), format="%Y%m%d", errors="coerce")
+    return df[dates.dt.year >= recent_years[0]]
+
+
+def player_stats(
+    df, player_name, surface="Hard", tour="ATP", as_of=None, mode="Historical"
+):
     """Return serve/return win percentages for a player on a surface."""
     tour = tour.upper()
     if tour not in DATA_FILES:
@@ -170,6 +185,8 @@ def player_stats(df, player_name, surface="Hard", tour="ATP", as_of=None):
         return {
             "serve_pct": default_serve_win,
             "return_pct": default_return_win,
+            "serve_points": 0.0,
+            "return_points": 0.0,
             "found": False,
         }
 
@@ -222,11 +239,26 @@ def player_stats(df, player_name, surface="Hard", tour="ATP", as_of=None):
         return {
             "serve_pct": default_serve_win,
             "return_pct": default_return_win,
+            "serve_points": float(total_svpts),
+            "return_points": float(total_rtpts),
             "found": False,
         }
 
+    raw_serve_points = winner_serve_df["w_svpt"].sum() + loser_serve_df["l_svpt"].sum()
+    raw_return_points = winner_return_df["l_svpt"].sum() + loser_return_df["w_svpt"].sum()
+    serve_rate = svpts_won / total_svpts
+    return_rate = rtpts_won / total_rtpts
+    blended_serve = (
+        raw_serve_points * serve_rate + BLEND_PRIOR_POINTS * default_serve_win
+    ) / (raw_serve_points + BLEND_PRIOR_POINTS)
+    blended_return = (
+        raw_return_points * return_rate + BLEND_PRIOR_POINTS * default_return_win
+    ) / (raw_return_points + BLEND_PRIOR_POINTS)
+
     return {
-        "serve_pct": svpts_won / total_svpts,
-        "return_pct": rtpts_won / total_rtpts,
+        "serve_pct": blended_serve,
+        "return_pct": blended_return,
+        "serve_points": float(raw_serve_points),
+        "return_points": float(raw_return_points),
         "found": True,
     }
