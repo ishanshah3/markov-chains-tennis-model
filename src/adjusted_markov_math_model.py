@@ -1,11 +1,13 @@
 import numpy as np
+import pandas as pd
 
-from dataset import load_dataset, player_stats
+from dataset import load_dataset, player_data_components
 
 S_AVG = 0.64
 R_AVG = 0.36
+HALF_LIFE_DAYS = 180
 DEFAULT_SURFACE = "Hard"
-
+BLEND_PRIOR_POINTS = 100
 
 def game_transition_matrix(p):
     q = 1 - p
@@ -196,12 +198,66 @@ def set_transition_matrix(H_1, H_2):
     return float(A[0, 0])
 
 
+
 def _serve_point_model(serve_pct, opponent_return_pct):
     W_1 = np.sqrt(S_AVG * (1.0 - R_AVG))
     W_2 = np.sqrt((1.0 - S_AVG) * R_AVG)
     numerator = serve_pct * (1.0 - opponent_return_pct) / W_1
     denominator = numerator + ((1.0 - serve_pct) * opponent_return_pct) / W_2
     return float(numerator / denominator)
+
+
+def _weighted_player_rates(stats, as_of):
+    if not stats["found"]:
+        return stats.get("serve_baseline", stats["serve_pct"]), stats.get(
+            "return_baseline", stats["return_pct"]
+        )
+
+    def weighted_sum(values, frame):
+        weights = 0.5 ** (
+            (as_of - frame["tourney_date"]).dt.days / HALF_LIFE_DAYS
+        )
+        return float(values.mul(weights).sum())
+
+    winner_serve = stats["winner_serve"]
+    loser_serve = stats["loser_serve"]
+    winner_return = stats["winner_return"]
+    loser_return = stats["loser_return"]
+    decay_serve_points = weighted_sum(winner_serve["w_svpt"], winner_serve)
+    decay_serve_points += weighted_sum(loser_serve["l_svpt"], loser_serve)
+    decay_serve_won = weighted_sum(winner_serve["w_1stWon"], winner_serve)
+    decay_serve_won += weighted_sum(winner_serve["w_2ndWon"], winner_serve)
+    decay_serve_won += weighted_sum(loser_serve["l_1stWon"], loser_serve)
+    decay_serve_won += weighted_sum(loser_serve["l_2ndWon"], loser_serve)
+    decay_return_points = weighted_sum(winner_return["l_svpt"], winner_return)
+    decay_return_points += weighted_sum(loser_return["w_svpt"], loser_return)
+    decay_return_won = weighted_sum(
+        winner_return["l_svpt"]
+        - winner_return["l_1stWon"]
+        - winner_return["l_2ndWon"],
+        winner_return,
+    )
+    decay_return_won += weighted_sum(
+        loser_return["w_svpt"]
+        - loser_return["w_1stWon"]
+        - loser_return["w_2ndWon"],
+        loser_return,
+    )
+    raw_serve_points = winner_serve["w_svpt"].sum() + loser_serve["l_svpt"].sum()
+    raw_return_points = winner_return["l_svpt"].sum() + loser_return["w_svpt"].sum()
+    if decay_serve_points == 0 or decay_return_points == 0:
+        return stats["serve_baseline"], stats["return_baseline"]
+    decay_serve_rate = decay_serve_won / decay_serve_points
+    decay_return_rate = decay_return_won / decay_return_points
+    serve_rate = (
+        raw_serve_points * decay_serve_rate
+        + BLEND_PRIOR_POINTS * stats["serve_baseline"]
+    ) / (raw_serve_points + BLEND_PRIOR_POINTS)
+    return_rate = (
+        raw_return_points * decay_return_rate
+        + BLEND_PRIOR_POINTS * stats["return_baseline"]
+    ) / (raw_return_points + BLEND_PRIOR_POINTS)
+    return float(serve_rate), float(return_rate)
 
 
 def compute_player_probabilities(
@@ -214,13 +270,12 @@ def compute_player_probabilities(
 ):
     df = load_dataset(tour)
 
-    player1_stats = player_stats(df, player1_name, surface, tour, as_of, mode)
-    player2_stats = player_stats(df, player2_name, surface, tour, as_of, mode)
+    player1_stats = player_data_components(df, player1_name, surface, tour, as_of)
+    player2_stats = player_data_components(df, player2_name, surface, tour, as_of)
 
-    p1_serve = player1_stats["serve_pct"]
-    p1_return = player1_stats["return_pct"]
-    p2_serve = player2_stats["serve_pct"]
-    p2_return = player2_stats["return_pct"]
+    as_of = pd.Timestamp.today().normalize() if as_of is None else pd.Timestamp(as_of)
+    p1_serve, p1_return = _weighted_player_rates(player1_stats, as_of)
+    p2_serve, p2_return = _weighted_player_rates(player2_stats, as_of)
 
     p1_point = _serve_point_model(p1_serve, p2_return)
     p2_point = _serve_point_model(p2_serve, p1_return)

@@ -6,8 +6,6 @@ from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "tml-data"
 CURRENT_YEAR = date.today().year
-HALF_LIFE_DAYS = 180
-BLEND_PRIOR_POINTS = 100
 DATA_FILES = {
     "ATP": sorted(
         path for path in DATA_DIR.glob("[0-9][0-9][0-9][0-9].csv")
@@ -140,10 +138,10 @@ def filter_dataset_by_mode(df, tour="ATP", mode="Historical"):
     return df[dates.dt.year >= recent_years[0]]
 
 
-def player_stats(
-    df, player_name, surface="Hard", tour="ATP", as_of=None, mode="Historical"
+def player_data_components(
+    df, player_name, surface="Hard", tour="ATP", as_of=None
 ):
-    """Return serve/return win percentages for a player on a surface."""
+    """Return validated surface-specific data components for a player."""
     tour = tour.upper()
     if tour not in DATA_FILES:
         raise ValueError("tour must be either 'ATP' or 'WTA'")
@@ -190,75 +188,12 @@ def player_stats(
             "found": False,
         }
 
-    winner_serve_weights = 0.5 ** (
-        (as_of - winner_serve_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
-    )
-    loser_serve_weights = 0.5 ** (
-        (as_of - loser_serve_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
-    )
-    winner_return_weights = 0.5 ** (
-        (as_of - winner_return_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
-    )
-    loser_return_weights = 0.5 ** (
-        (as_of - loser_return_df["tourney_date"]).dt.days / HALF_LIFE_DAYS
-    )
-    weighted_sum = lambda values, weights: values.mul(weights).sum()
-
-    svpts_won = (
-        weighted_sum(winner_serve_df["w_1stWon"], winner_serve_weights)
-        + weighted_sum(winner_serve_df["w_2ndWon"], winner_serve_weights)
-        + weighted_sum(loser_serve_df["l_1stWon"], loser_serve_weights)
-        + weighted_sum(loser_serve_df["l_2ndWon"], loser_serve_weights)
-    )
-
-    rtpts_won = (
-        weighted_sum(winner_return_df["l_svpt"], winner_return_weights)
-        - (
-            weighted_sum(winner_return_df["l_1stWon"], winner_return_weights)
-            + weighted_sum(winner_return_df["l_2ndWon"], winner_return_weights)
-        )
-        + weighted_sum(loser_return_df["w_svpt"], loser_return_weights)
-        - (
-            weighted_sum(loser_return_df["w_1stWon"], loser_return_weights)
-            + weighted_sum(loser_return_df["w_2ndWon"], loser_return_weights)
-        )
-    )
-
-    total_svpts = weighted_sum(
-        winner_serve_df["w_svpt"], winner_serve_weights
-    ) + weighted_sum(
-        loser_serve_df["l_svpt"], loser_serve_weights
-    )
-    total_rtpts = weighted_sum(
-        winner_return_df["l_svpt"], winner_return_weights
-    ) + weighted_sum(
-        loser_return_df["w_svpt"], loser_return_weights
-    )
-
-    if total_svpts == 0 or total_rtpts == 0:
-        return {
-            "serve_pct": default_serve_win,
-            "return_pct": default_return_win,
-            "serve_points": float(total_svpts),
-            "return_points": float(total_rtpts),
-            "found": False,
-        }
-
-    raw_serve_points = winner_serve_df["w_svpt"].sum() + loser_serve_df["l_svpt"].sum()
-    raw_return_points = winner_return_df["l_svpt"].sum() + loser_return_df["w_svpt"].sum()
-    serve_rate = svpts_won / total_svpts
-    return_rate = rtpts_won / total_rtpts
-    blended_serve = (
-        raw_serve_points * serve_rate + BLEND_PRIOR_POINTS * default_serve_win
-    ) / (raw_serve_points + BLEND_PRIOR_POINTS)
-    blended_return = (
-        raw_return_points * return_rate + BLEND_PRIOR_POINTS * default_return_win
-    ) / (raw_return_points + BLEND_PRIOR_POINTS)
-
     return {
-        "serve_pct": blended_serve,
-        "return_pct": blended_return,
-        "serve_points": float(raw_serve_points),
-        "return_points": float(raw_return_points),
+        "serve_baseline": float(default_serve_win),
+        "return_baseline": float(default_return_win),
+        "winner_serve": winner_serve_df,
+        "loser_serve": loser_serve_df,
+        "winner_return": winner_return_df,
+        "loser_return": loser_return_df,
         "found": True,
     }

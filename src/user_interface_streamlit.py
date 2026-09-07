@@ -2,7 +2,7 @@ import streamlit as st
 from concurrent.futures import ThreadPoolExecutor
 
 from dataset import filter_dataset_by_mode, load_dataset
-from adjusted_markov_model import compute_player_probabilities
+from adjusted_markov_math_model import compute_player_probabilities
 
 
 st.set_page_config(
