@@ -1,8 +1,11 @@
-import pandas as pd
+import re
+import unicodedata
 from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
+
+import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "tml-data"
 CURRENT_YEAR = date.today().year
@@ -36,6 +39,57 @@ POINT_COLUMNS = [
     "l_1stWon",
     "l_2ndWon",
 ]
+
+PLAYER_NAME_ALIASES = {
+    "otic van de zandschulp": "Botic van de Zandschulp",
+    "botic van de zandschulp": "Botic van de Zandschulp",
+}
+
+
+def canonicalize_player_name(value):
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = text.replace(".", " ")
+    text = re.sub(r"[^a-zA-Z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    return text
+
+
+def standardize_player_name(value):
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    normalized_key = canonicalize_player_name(text)
+    if normalized_key in PLAYER_NAME_ALIASES:
+        return PLAYER_NAME_ALIASES[normalized_key]
+    tokens = [token for token in re.split(r"\s+", text.strip()) if token]
+    if not tokens:
+        return ""
+    title_tokens = [token.title() for token in tokens]
+    for particle in ["Van", "De", "Von", "Der", "La", "Le", "Del", "Da", "Di", "El", "Al", "Bin"]:
+        title_tokens = [
+            token if token.lower() not in {particle.lower()} else particle.lower()
+            for token in title_tokens
+        ]
+    display = " ".join(title_tokens)
+    display = re.sub(r"\s+", " ", display).strip()
+    return display
+
+
+def canonicalize_name_columns(frame):
+    if frame is None or not isinstance(frame, pd.DataFrame):
+        return frame
+    for column in ("winner_name", "loser_name"):
+        if column in frame.columns:
+            frame[f"{column}_key"] = frame[column].map(canonicalize_player_name)
+    return frame
 
 
 def _normalize_point_columns(frame):
@@ -75,7 +129,9 @@ def load_dataset(tour="ATP"):
             executor.map(lambda job: _load_live_or_local(*job), live_jobs)
         )
     frames = [
-        _normalize_point_columns(frame) for frame in frames if frame is not None
+        canonicalize_name_columns(_normalize_point_columns(frame))
+        for frame in frames
+        if frame is not None
     ]
     return pd.concat(frames, ignore_index=True).drop_duplicates(
         subset=["tourney_id", "match_num"], keep="last"
@@ -156,8 +212,9 @@ def player_data_components(
     surface_df = eligible_df[eligible_df["surface"] == surface]
     defaults = _average_rates(surface_df) or _average_rates(eligible_df) or (0.5, 0.5)
     default_serve_win, default_return_win = defaults
-    winner_df = surface_df[surface_df["winner_name"] == player_name]
-    loser_df = surface_df[surface_df["loser_name"] == player_name]
+    player_key = canonicalize_player_name(player_name)
+    winner_df = surface_df[surface_df["winner_name_key"].map(canonicalize_player_name) == player_key]
+    loser_df = surface_df[surface_df["loser_name_key"].map(canonicalize_player_name) == player_key]
 
     def valid_serve_rows(frame, prefix):
         columns = [f"{prefix}_svpt", f"{prefix}_1stWon", f"{prefix}_2ndWon"]

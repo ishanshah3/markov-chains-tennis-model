@@ -1,7 +1,7 @@
 import streamlit as st
 from concurrent.futures import ThreadPoolExecutor
 
-from dataset import filter_dataset_by_mode, load_dataset
+from dataset import filter_dataset_by_mode, load_dataset, standardize_player_name
 from adjusted_markov_math_model import compute_player_probabilities
 
 
@@ -26,16 +26,16 @@ default_players = {
 def save_player_inputs():
     tour = st.session_state.tour
     st.session_state.players_by_tour[tour] = (
-        st.session_state.player1_name,
-        st.session_state.player2_name,
+        standardize_player_name(st.session_state.player1_name),
+        standardize_player_name(st.session_state.player2_name),
     )
 
 
 def switch_tour():
     tour = st.session_state.tour
     player1_name, player2_name = st.session_state.players_by_tour[tour]
-    st.session_state.player1_name = player1_name
-    st.session_state.player2_name = player2_name
+    st.session_state.player1_name = standardize_player_name(player1_name)
+    st.session_state.player2_name = standardize_player_name(player2_name)
 
 
 def toggle_dark_mode():
@@ -71,10 +71,14 @@ def player_names_for_tour(tour, mode):
         dataset.loc[valid_winner_stats, "loser_name"].dropna()
     )
     names = serve_names & return_names
-    normalized_names = {str(name).strip() for name in names if str(name).strip()}
+    standardized_names = {
+        standardize_player_name(name)
+        for name in names
+        if str(name).strip() and standardize_player_name(name)
+    }
     return sorted(
         name
-        for name in normalized_names
+        for name in standardized_names
         if "." not in name or name.lower().endswith((" jr.", " sr."))
     )
 
@@ -239,10 +243,14 @@ with st.container(key="match_setup"):
     for player_key, default_name in zip(
         ("player1_name", "player2_name"), default_players[tour]
     ):
-        if st.session_state[player_key] not in player_names:
+        normalized_current = standardize_player_name(st.session_state[player_key])
+        if normalized_current not in player_names:
+            standardized_default = standardize_player_name(default_name)
             st.session_state[player_key] = (
-                default_name if default_name in player_names else player_names[0]
+                standardized_default if standardized_default in player_names else player_names[0]
             )
+        else:
+            st.session_state[player_key] = normalized_current
 
     with setup_cols[2]:
         player1_name = st.selectbox(
