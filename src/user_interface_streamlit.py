@@ -1,8 +1,12 @@
 import streamlit as st
 from concurrent.futures import ThreadPoolExecutor
 
-from dataset import filter_dataset_by_mode, load_dataset, standardize_player_name
-from adjusted_markov_math_model import compute_player_probabilities
+try:
+    from dataset import filter_dataset_by_mode, load_dataset, standardize_player_name
+    from adjusted_markov_math_model import compute_player_probabilities
+except ModuleNotFoundError:  # pragma: no cover - pytest/project-root fallback
+    from src.dataset import filter_dataset_by_mode, load_dataset, standardize_player_name
+    from src.adjusted_markov_math_model import compute_player_probabilities
 
 
 st.set_page_config(
@@ -17,25 +21,35 @@ def percentage(value):
     return f"{value * 100:.1f}%"
 
 
-default_players = {
-    "ATP": ("Carlos Alcaraz", "Jannik Sinner"),
-    "WTA": ("Aryna Sabalenka", "Iga Swiatek"),
+default_players_by_mode = {
+    ("ATP", "Current"): ("Carlos Alcaraz", "Jannik Sinner"),
+    ("ATP", "Historical"): ("Rafael Nadal", "Roger Federer"),
+    ("WTA", "Current"): ("Aryna Sabalenka", "Iga Swiatek"),
+    ("WTA", "Historical"): ("Serena Williams", "Venus Williams"),
 }
 
 
 def save_player_inputs():
-    tour = st.session_state.tour
-    st.session_state.players_by_tour[tour] = (
+    context = (st.session_state.tour, st.session_state.data_mode)
+    st.session_state.players_by_context[context] = (
         standardize_player_name(st.session_state.player1_name),
         standardize_player_name(st.session_state.player2_name),
     )
 
 
 def switch_tour():
-    tour = st.session_state.tour
-    player1_name, player2_name = st.session_state.players_by_tour[tour]
+    context = (st.session_state.tour, st.session_state.data_mode)
+    player1_name, player2_name = st.session_state.players_by_context[context]
     st.session_state.player1_name = standardize_player_name(player1_name)
     st.session_state.player2_name = standardize_player_name(player2_name)
+
+
+def reset_players_for_mode():
+    context = (st.session_state.tour, st.session_state.data_mode)
+    player1_name, player2_name = default_players_by_mode[context]
+    st.session_state.player1_name = player1_name
+    st.session_state.player2_name = player2_name
+    st.session_state.players_by_context[context] = (player1_name, player2_name)
 
 
 def toggle_dark_mode():
@@ -87,12 +101,19 @@ if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 if "tour" not in st.session_state:
     st.session_state.tour = "ATP"
-if "players_by_tour" not in st.session_state:
-    st.session_state.players_by_tour = default_players.copy()
+if "data_mode" not in st.session_state:
+    st.session_state.data_mode = "Current"
+if "players_by_context" not in st.session_state:
+    st.session_state.players_by_context = default_players_by_mode.copy()
+    context = (st.session_state.tour, st.session_state.data_mode)
+    st.session_state.player1_name = st.session_state.players_by_context[context][0]
+    st.session_state.player2_name = st.session_state.players_by_context[context][1]
 if "player1_name" not in st.session_state:
-    st.session_state.player1_name = st.session_state.players_by_tour[st.session_state.tour][0]
+    context = (st.session_state.tour, st.session_state.data_mode)
+    st.session_state.player1_name = st.session_state.players_by_context[context][0]
 if "player2_name" not in st.session_state:
-    st.session_state.player2_name = st.session_state.players_by_tour[st.session_state.tour][1]
+    context = (st.session_state.tour, st.session_state.data_mode)
+    st.session_state.player2_name = st.session_state.players_by_context[context][1]
 if "dataset_warmup" not in st.session_state:
     start_dataset_warmup()
 
@@ -235,13 +256,18 @@ with st.container(key="match_setup"):
     st.caption("Choose a tour, matchup, and court surface to model the probabilities.")
     setup_cols = st.columns([1, 1, 1.7, 1.7, 1])
     with setup_cols[0]:
-        mode = st.selectbox("Data mode", ["Current", "Historical"], key="data_mode")
+        mode = st.selectbox(
+            "Data mode",
+            ["Current", "Historical"],
+            key="data_mode",
+            on_change=reset_players_for_mode,
+        )
     with setup_cols[1]:
         tour = st.selectbox("Tour", ["ATP", "WTA"], key="tour", on_change=switch_tour)
 
     player_names = player_names_for_tour(tour, mode)
     for player_key, default_name in zip(
-        ("player1_name", "player2_name"), default_players[tour]
+        ("player1_name", "player2_name"), default_players_by_mode[(tour, mode)]
     ):
         normalized_current = standardize_player_name(st.session_state[player_key])
         if normalized_current not in player_names:
@@ -277,6 +303,15 @@ if st.button("Calculate match probabilities", type="primary"):
             )
 
         p1, p2 = results["player1"], results["player2"]
+        low_confidence_players = [
+            player["name"] for player in (p1, p2) if player.get("low_confidence")
+        ]
+        if low_confidence_players:
+            st.warning(
+                "Low-confidence estimate: low/no surface-specific point data for "
+                + ", ".join(low_confidence_players)
+                + "."
+            )
         st.markdown('<div class="section-label">Projected win rates</div>', unsafe_allow_html=True)
         summary = [
             ("Service point", p1["point_win_pct"], p2["point_win_pct"]),
@@ -304,6 +339,7 @@ if st.button("Calculate match probabilities", type="primary"):
         for column, player, badge in zip(player_cols, (p1, p2), ("1", "2")):
             with column:
                 source_note = "Dataset profile" if player["found"] else "Default estimate"
+                confidence_label = "Low confidence estimate" if player.get("low_confidence") else "Reliable estimate"
                 st.markdown(
                     f"""
                     <div class="player">
@@ -313,7 +349,7 @@ if st.button("Calculate match probabilities", type="primary"):
                         <div class="stat-row"><span>Service point win</span><strong>{percentage(player['point_win_pct'])}</strong></div>
                         <div class="stat-row"><span>Service game win</span><strong>{percentage(player['game_win_pct'])}</strong></div>
                         <div class="stat-row"><span>Set win %</span><strong>{percentage(player['set_win_pct'])}</strong></div>
-                        <div class="note">{source_note} on {surface}</div>
+                        <div class="note">{source_note} on {surface} · {confidence_label}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,

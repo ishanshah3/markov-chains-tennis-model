@@ -185,13 +185,9 @@ def _average_rates(df):
 def filter_dataset_by_mode(df, tour="ATP", mode="Historical"):
     if mode == "Historical":
         return df
-    recent_years = sorted(
-        int(path.stem.split("_")[0]) for path in DATA_FILES[tour.upper()]
-    )[-2:]
-    if not recent_years:
-        return df.iloc[0:0]
+    current_window_start = CURRENT_YEAR - 1
     dates = pd.to_datetime(df["tourney_date"].astype(str), format="%Y%m%d", errors="coerce")
-    return df[dates.dt.year >= recent_years[0]]
+    return df[dates.dt.year >= current_window_start]
 
 
 def player_data_components(

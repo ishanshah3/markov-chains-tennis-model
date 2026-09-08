@@ -8,8 +8,9 @@ This project aims to use adjusted markov modeling to more accurately predict the
 - Includes all-time data with point importance time decay with half-life of 180 days
 - User friendly UI to predict H2H matches
 - Data filtered by court surface to match performance on a specific surface
+- Blended with tour data to make sure new players are more regulated
 
-## How It Works
+## Mathematical Explanation
 
 
 
@@ -25,7 +26,9 @@ Historical data is read from the local CSV files. The app refreshes current-year
 
 ## How to Run
 
+Go to the streamlit app:
 
+https://markov-chains-tennis-model.streamlit.app/
 
 ## License
 

@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 
-from dataset import load_dataset, player_data_components
+try:
+    from dataset import canonicalize_player_name, filter_dataset_by_mode, load_dataset, player_data_components
+except ModuleNotFoundError:  # pragma: no cover - pytest/project-root fallback
+    from src.dataset import canonicalize_player_name, filter_dataset_by_mode, load_dataset, player_data_components
 
 S_AVG = 0.64
 R_AVG = 0.36
@@ -207,11 +210,11 @@ def _serve_point_model(serve_pct, opponent_return_pct):
     return float(numerator / denominator)
 
 
-def _weighted_player_rates(stats, as_of):
+def _weighted_player_rates(stats, as_of, use_decay=True):
     if not stats["found"]:
-        return stats.get("serve_baseline", stats["serve_pct"]), stats.get(
-            "return_baseline", stats["return_pct"]
-        )
+        baseline_serve = stats.get("serve_baseline", stats["serve_pct"])
+        baseline_return = stats.get("return_baseline", stats["return_pct"])
+        return baseline_serve, baseline_return, True
 
     def weighted_sum(values, frame):
         weights = 0.5 ** (
@@ -223,41 +226,62 @@ def _weighted_player_rates(stats, as_of):
     loser_serve = stats["loser_serve"]
     winner_return = stats["winner_return"]
     loser_return = stats["loser_return"]
-    decay_serve_points = weighted_sum(winner_serve["w_svpt"], winner_serve)
-    decay_serve_points += weighted_sum(loser_serve["l_svpt"], loser_serve)
-    decay_serve_won = weighted_sum(winner_serve["w_1stWon"], winner_serve)
-    decay_serve_won += weighted_sum(winner_serve["w_2ndWon"], winner_serve)
-    decay_serve_won += weighted_sum(loser_serve["l_1stWon"], loser_serve)
-    decay_serve_won += weighted_sum(loser_serve["l_2ndWon"], loser_serve)
-    decay_return_points = weighted_sum(winner_return["l_svpt"], winner_return)
-    decay_return_points += weighted_sum(loser_return["w_svpt"], loser_return)
-    decay_return_won = weighted_sum(
-        winner_return["l_svpt"]
-        - winner_return["l_1stWon"]
-        - winner_return["l_2ndWon"],
-        winner_return,
-    )
-    decay_return_won += weighted_sum(
-        loser_return["w_svpt"]
-        - loser_return["w_1stWon"]
-        - loser_return["w_2ndWon"],
-        loser_return,
-    )
     raw_serve_points = winner_serve["w_svpt"].sum() + loser_serve["l_svpt"].sum()
     raw_return_points = winner_return["l_svpt"].sum() + loser_return["w_svpt"].sum()
-    if decay_serve_points == 0 or decay_return_points == 0:
-        return stats["serve_baseline"], stats["return_baseline"]
-    decay_serve_rate = decay_serve_won / decay_serve_points
-    decay_return_rate = decay_return_won / decay_return_points
+    raw_serve_won = (
+        winner_serve["w_1stWon"].sum()
+        + winner_serve["w_2ndWon"].sum()
+        + loser_serve["l_1stWon"].sum()
+        + loser_serve["l_2ndWon"].sum()
+    )
+    raw_return_won = (
+        winner_return["l_svpt"].sum()
+        - winner_return["l_1stWon"].sum()
+        - winner_return["l_2ndWon"].sum()
+        + loser_return["w_svpt"].sum()
+        - loser_return["w_1stWon"].sum()
+        - loser_return["w_2ndWon"].sum()
+    )
+    low_confidence = bool(raw_serve_points < 500 or raw_return_points < 500)
+    if raw_serve_points == 0 or raw_return_points == 0:
+        baseline_serve = stats["serve_baseline"]
+        baseline_return = stats["return_baseline"]
+        return baseline_serve, baseline_return, True
+    if use_decay:
+        decay_serve_points = weighted_sum(winner_serve["w_svpt"], winner_serve)
+        decay_serve_points += weighted_sum(loser_serve["l_svpt"], loser_serve)
+        decay_serve_won = weighted_sum(winner_serve["w_1stWon"], winner_serve)
+        decay_serve_won += weighted_sum(winner_serve["w_2ndWon"], winner_serve)
+        decay_serve_won += weighted_sum(loser_serve["l_1stWon"], loser_serve)
+        decay_serve_won += weighted_sum(loser_serve["l_2ndWon"], loser_serve)
+        decay_return_points = weighted_sum(winner_return["l_svpt"], winner_return)
+        decay_return_points += weighted_sum(loser_return["w_svpt"], loser_return)
+        decay_return_won = weighted_sum(
+            winner_return["l_svpt"]
+            - winner_return["l_1stWon"]
+            - winner_return["l_2ndWon"],
+            winner_return,
+        )
+        decay_return_won += weighted_sum(
+            loser_return["w_svpt"]
+            - loser_return["w_1stWon"]
+            - loser_return["w_2ndWon"],
+            loser_return,
+        )
+        serve_rate = decay_serve_won / decay_serve_points
+        return_rate = decay_return_won / decay_return_points
+    else:
+        serve_rate = raw_serve_won / raw_serve_points
+        return_rate = raw_return_won / raw_return_points
     serve_rate = (
-        raw_serve_points * decay_serve_rate
+        raw_serve_points * serve_rate
         + BLEND_PRIOR_POINTS * stats["serve_baseline"]
     ) / (raw_serve_points + BLEND_PRIOR_POINTS)
     return_rate = (
-        raw_return_points * decay_return_rate
+        raw_return_points * return_rate
         + BLEND_PRIOR_POINTS * stats["return_baseline"]
     ) / (raw_return_points + BLEND_PRIOR_POINTS)
-    return float(serve_rate), float(return_rate)
+    return float(serve_rate), float(return_rate), low_confidence
 
 
 def compute_player_probabilities(
@@ -269,13 +293,32 @@ def compute_player_probabilities(
     mode="Historical",
 ):
     df = load_dataset(tour)
+    current_df = filter_dataset_by_mode(df, tour, "Current")
+    analysis_df = df
+    current_player_keys = set(current_df["winner_name_key"]) | set(
+        current_df["loser_name_key"]
+    )
 
-    player1_stats = player_data_components(df, player1_name, surface, tour, as_of)
-    player2_stats = player_data_components(df, player2_name, surface, tour, as_of)
+    player1_stats = player_data_components(
+        analysis_df, player1_name, surface, tour, as_of
+    )
+    player2_stats = player_data_components(
+        analysis_df, player2_name, surface, tour, as_of
+    )
 
     as_of = pd.Timestamp.today().normalize() if as_of is None else pd.Timestamp(as_of)
-    p1_serve, p1_return = _weighted_player_rates(player1_stats, as_of)
-    p2_serve, p2_return = _weighted_player_rates(player2_stats, as_of)
+    p1_use_decay = mode != "Historical" or canonicalize_player_name(
+        player1_name
+    ) in current_player_keys
+    p2_use_decay = mode != "Historical" or canonicalize_player_name(
+        player2_name
+    ) in current_player_keys
+    p1_serve, p1_return, p1_low_confidence = _weighted_player_rates(
+        player1_stats, as_of, use_decay=p1_use_decay
+    )
+    p2_serve, p2_return, p2_low_confidence = _weighted_player_rates(
+        player2_stats, as_of, use_decay=p2_use_decay
+    )
 
     p1_point = _serve_point_model(p1_serve, p2_return)
     p2_point = _serve_point_model(p2_serve, p1_return)
@@ -295,6 +338,7 @@ def compute_player_probabilities(
             "game_win_pct": float(p1_game),
             "set_win_pct": float(p1_set_win),
             "found": player1_stats.get("found", False),
+            "low_confidence": bool(p1_low_confidence),
         },
         "player2": {
             "name": player2_name,
@@ -304,6 +348,7 @@ def compute_player_probabilities(
             "game_win_pct": float(p2_game),
             "set_win_pct": float(p2_set_win),
             "found": player2_stats.get("found", False),
+            "low_confidence": bool(p2_low_confidence),
         },
         "surface": surface,
     }
