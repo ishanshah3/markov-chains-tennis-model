@@ -2,15 +2,37 @@ import numpy as np
 import pandas as pd
 
 try:
-    from dataset import canonicalize_player_name, filter_dataset_by_mode, load_dataset, player_data_components
+    from dataset import (
+        _average_rates,
+        canonicalize_player_name,
+        filter_dataset_by_mode,
+        load_dataset,
+        player_data_components,
+    )
 except ModuleNotFoundError:  # pragma: no cover - pytest/project-root fallback
-    from src.dataset import canonicalize_player_name, filter_dataset_by_mode, load_dataset, player_data_components
+    from src.dataset import (
+        _average_rates,
+        canonicalize_player_name,
+        filter_dataset_by_mode,
+        load_dataset,
+        player_data_components,
+    )
 
-S_AVG = 0.64
-R_AVG = 0.36
 HALF_LIFE_DAYS = 180
 DEFAULT_SURFACE = "Hard"
 BLEND_PRIOR_POINTS = 100
+
+
+def get_surface_average_rates(surface, tour="ATP", df=None):
+    surface = (surface or DEFAULT_SURFACE).title()
+    if df is None:
+        df = load_dataset(tour)
+    surface_df = df[df["surface"] == surface]
+    if surface_df.empty:
+        surface_df = df
+    rates = _average_rates(surface_df) or _average_rates(df) or (0.5, 0.5)
+    serve_avg, return_avg = rates
+    return float(serve_avg), float(return_avg)
 
 def game_transition_matrix(p):
     q = 1 - p
@@ -201,10 +223,9 @@ def set_transition_matrix(H_1, H_2):
     return float(A[0, 0])
 
 
-
-def _serve_point_model(serve_pct, opponent_return_pct):
-    W_1 = np.sqrt(S_AVG * (1.0 - R_AVG))
-    W_2 = np.sqrt((1.0 - S_AVG) * R_AVG)
+def _serve_point_model(serve_pct, opponent_return_pct, serve_avg=None, return_avg=None):
+    W_1 = np.sqrt(serve_avg * (1.0 - return_avg))
+    W_2 = np.sqrt((1.0 - serve_avg) * return_avg)
     numerator = serve_pct * (1.0 - opponent_return_pct) / W_1
     denominator = numerator + ((1.0 - serve_pct) * opponent_return_pct) / W_2
     return float(numerator / denominator)
@@ -320,8 +341,9 @@ def compute_player_probabilities(
         player2_stats, as_of, use_decay=p2_use_decay
     )
 
-    p1_point = _serve_point_model(p1_serve, p2_return)
-    p2_point = _serve_point_model(p2_serve, p1_return)
+    serve_avg, return_avg = get_surface_average_rates(surface, tour, df)
+    p1_point = _serve_point_model(p1_serve, p2_return, serve_avg=serve_avg, return_avg=return_avg)
+    p2_point = _serve_point_model(p2_serve, p1_return, serve_avg=serve_avg, return_avg=return_avg)
 
     p1_game = game_transition_matrix(p1_point)
     p2_game = game_transition_matrix(p2_point)
